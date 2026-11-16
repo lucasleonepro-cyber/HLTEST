@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Vérifier le compte
         env:
-          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC || 'hl-lucas-c3a94cdddeef' }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           WALLET: "0x36693fd5fCfE40cb21438C4E1EC8088d4b89AD1c"
           THRESHOLDS: "25,20,15,10"
           SUMMARY_HOUR_UTC: "7"
