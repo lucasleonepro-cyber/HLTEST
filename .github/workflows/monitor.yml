@@ -1,0 +1,33 @@
+name: Surveillance Hyperliquid
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vérifier le compte
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          WALLET: "0x36693fd5fCfE40cb21438C4E1EC8088d4b89AD1c"
+          THRESHOLDS: "25,20,15,10"
+          SUMMARY_HOUR_UTC: "7"
+          PAGE_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+        run: python3 monitor/check.py
+      - name: Sauvegarder l'état
+        run: |
+          if [ -n "$(git status --porcelain monitor/state.json)" ]; then
+            git config user.name "hl-monitor"
+            git config user.email "hl-monitor@users.noreply.github.com"
+            git add monitor/state.json
+            git commit -m "monitor: état mis à jour"
+            git push
+          fi

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cockpit Hyperliquid Earn</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#15181d;--muted:#626b78;--line:#e3e6eb;--green:#14874f;--green-bg:#e3f5ec;--yellow:#9a6b00;--yellow-bg:#fff5d6;--orange:#c25400;--orange-bg:#ffe9d9;--red:#c4231c;--red-bg:#fde4e2;--accent:#2f5bd3;--accent-bg:#e8eefc;--shadow:0 1px 2px rgba(0,0,0,.05),0 2px 8px rgba(0,0,0,.04)}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eef0f3;--muted:#9aa3af;--line:#2a2f37;--green:#3fc985;--green-bg:#11291e;--yellow:#e6b93c;--yellow-bg:#2b2410;--orange:#ff9147;--orange-bg:#33200f;--red:#ff6a61;--red-bg:#361513;--accent:#7d9cff;--accent-bg:#1a2340;--shadow:none}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding:18px 14px 60px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}
+h1{font-size:20px;margin:0}h2{font-size:16px;margin:0 0 4px}h3{font-size:14px;margin:12px 0 6px}
+.sub{color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=text],input[type=number],select{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit}
+input[type=number]{width:110px}
+#addr{width:360px;max-width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:12px}.g4{grid-template-columns:repeat(4,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:1fr 1fr}
+@media (max-width:880px){.g4,.g3{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+.section{margin-top:12px}
+.banner{border-radius:14px;padding:18px 20px;border:1px solid transparent}
+.banner .lvl{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.banner .msg{font-size:21px;font-weight:700;margin:4px 0 6px;line-height:1.3;color:var(--ink)}
+.banner .det{color:var(--ink)}
+.s-green{background:var(--green-bg);color:var(--green);border-color:var(--green)}.s-yellow{background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow)}.s-orange{background:var(--orange-bg);color:var(--orange);border-color:var(--orange)}.s-red{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.kpi .lab{font-size:13px;color:var(--muted)}.kpi .val{font-size:24px;font-weight:700;margin:2px 0;font-variant-numeric:tabular-nums}.kpi .hint{font-size:12.5px;color:var(--muted)}
+.c-green{color:var(--green)}.c-yellow{color:var(--yellow)}.c-orange{color:var(--orange)}.c-red{color:var(--red)}.muted{color:var(--muted)}.small{font-size:13px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);font-size:14px}
+th{color:var(--muted);font-weight:600;font-size:12.5px}td.r,th.r{text-align:right;white-space:nowrap}
+tr.hl td{background:var(--accent-bg)}
+.gauge{position:relative;height:24px;border-radius:12px;margin:38px 0 34px}
+.gmark{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--ink)}
+.gmark span{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:12px;color:var(--muted);bottom:-22px}
+.gmark.alt span{bottom:auto;top:-22px}
+.gcur{position:absolute;top:-10px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:12px solid var(--ink);transform:translateX(-9px)}
+.gcurlab{position:absolute;top:-34px;transform:translateX(-50%);font-weight:700;font-size:13px;white-space:nowrap}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--line)}
+.warn{background:var(--orange-bg);border:1px solid var(--orange);color:var(--ink);border-radius:10px;padding:10px 12px;margin-top:10px}
+.ok{background:var(--green-bg);border:1px solid var(--green);color:var(--ink);border-radius:10px;padding:10px 12px;margin-top:10px}
+.err{background:var(--red-bg);color:var(--red);padding:12px;border-radius:10px;display:none;margin-bottom:12px}
+.box{margin-top:10px;padding:12px;border-radius:10px;border:1px solid var(--line)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+label.f input,label.f select{color:var(--ink)}
+.form{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px}
+details{border-top:1px solid var(--line);padding:10px 0}details:first-of-type{border-top:0}summary{cursor:pointer;font-weight:600}details p{margin:8px 0 0}
+svg text{fill:var(--muted);font-size:11px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:6px;vertical-align:middle}.dot.off{background:var(--muted)}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
+nav a{font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);text-decoration:none;color:var(--ink);background:var(--card)}
+a{color:var(--accent)}
+.foot{margin-top:22px;font-size:12.5px;color:var(--muted)}
+input[type=range]{width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div><h1>Cockpit Hyperliquid Earn</h1>
+  <div class="sub"><span class="dot" id="liveDot"></span><span id="updated">Chargement…</span></div></div>
+  <div class="row"><input type="text" id="addr" spellcheck="false" aria-label="Adresse du wallet"><button id="go">Actualiser</button></div>
+</header>
+<nav>
+  <a href="#etat">État</a><a href="#avoirs">Avoirs</a><a href="#plan">Planifier</a><a href="#scenarios">Scénarios de prix</a><a href="#liqsim">Si je suis liquidé</a><a href="#sortie">Plan de sortie</a><a href="#alertes">Alertes</a><a href="#comprendre">Comprendre</a>
+</nav>
+<div class="err" id="err"></div>
+
+<!-- ETAT -->
+<div id="etat" class="banner section" ><div class="lvl" id="lvl">…</div><div class="msg" id="msg">Lecture de ton compte…</div><div class="det" id="det"></div></div>
+
+<div class="grid g4 section">
+  <div class="card kpi"><div class="lab" id="k1l">Prix actuel</div><div class="val" id="k1">–</div><div class="hint" id="k1h">Prix oracle utilisé par Hyperliquid</div></div>
+  <div class="card kpi"><div class="lab">Liquidation partielle</div><div class="val c-orange" id="k2">–</div><div class="hint" id="k2h">Une partie de ta garantie est reprise.</div></div>
+  <div class="card kpi"><div class="lab">Liquidation totale</div><div class="val c-red" id="k3">–</div><div class="hint" id="k3h">Toute la garantie et la dette sont reprises.</div></div>
+  <div class="card kpi"><div class="lab">Health factor</div><div class="val" id="k4">–</div><div class="hint" id="k4h"></div></div>
+</div>
+
+<div class="card section">
+  <h2>Où tu te situes</h2>
+  <div class="sub">Part de ta garantie financée par la dette (LTV). Le curseur va vers la droite quand le prix baisse ou que tu empruntes.</div>
+  <div class="gauge" id="gauge"></div>
+  <div class="small muted" id="gaugeTxt"></div>
+</div>
+
+<!-- AVOIRS -->
+<div id="avoirs" class="grid g2 section">
+  <div class="card">
+    <h2>Tes HYPE, où ils sont</h2>
+    <div class="sub">Seuls les HYPE « en garantie » te protègent de la liquidation.</div>
+    <table id="tHype"><thead><tr><th>Emplacement</th><th class="r">HYPE</th><th class="r">Valeur</th><th class="r">Protège ?</th></tr></thead><tbody></tbody></table>
+    <div id="outsideNote"></div>
+  </div>
+  <div class="card">
+    <h2>Ce que tu dois</h2>
+    <div class="sub">Les intérêts s'ajoutent chaque heure.</div>
+    <table id="tDebt"><thead><tr><th>Jeton</th><th class="r">Montant</th><th class="r">Taux/an</th><th class="r">Coût/jour</th></tr></thead><tbody></tbody></table>
+    <div class="grid g2" style="margin-top:12px">
+      <div class="kpi"><div class="lab">Valeur nette (tout compris)</div><div class="val" id="net">–</div></div>
+      <div class="kpi"><div class="lab">Effet de levier</div><div class="val" id="lev">–</div><div class="hint">Exposition HYPE ÷ valeur nette</div></div>
+      <div class="kpi"><div class="lab">Emprunt encore possible</div><div class="val" id="canBorrow">–</div></div>
+      <div class="kpi"><div class="lab">HYPE retirables maintenant</div><div class="val" id="canWithdraw">–</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="card section">
+  <h2 id="chartTitle">Le prix sur 90 jours et tes seuils</h2>
+  <div class="sub">Orange : liquidation partielle · Rouge : liquidation totale · Pointillé gris : plus d'emprunt possible</div>
+  <div id="chart" style="margin-top:8px"></div>
+  <div id="histStat" class="small" style="margin-top:8px"></div>
+</div>
+
+<!-- PLAN -->
+<div id="plan" class="card section">
+  <h2>Planifier une décision</h2>
+  <div class="sub">Remplis ce que tu envisages de faire. Tout le reste de la page (scénarios, liquidation, sortie) se recalcule avec ton plan. Laisse à 0 pour voir ta situation actuelle.</div>
+  <div class="form">
+    <label class="f">HYPE à déposer en garantie (depuis spot / déstaking)<input type="number" id="pAdd" value="0" min="0" step="0.1"><span class="small" id="pAddHint"></span></label>
+    <label class="f">HYPE à retirer de la garantie et vendre<input type="number" id="pSell" value="0" min="0" step="0.1"></label>
+    <label class="f">Que faire de la vente ?<select id="pSellUse"><option value="repay">Rembourser la dette</option><option value="out">Sortir l'argent (cadeaux, etc.)</option></select></label>
+    <label class="f">$ à rembourser (argent venu d'ailleurs)<input type="number" id="pRepay" value="0" min="0" step="50"></label>
+    <label class="f">$ à emprunter en plus<input type="number" id="pBorrow" value="0" min="0" step="50"></label>
+    <label class="f">Que faire de l'emprunt ?<select id="pBorrowUse"><option value="buy">Racheter du HYPE et le déposer</option><option value="out">Le sortir / le garder à côté</option></select></label>
+    <label class="f">Prix du HYPE pour l'opération ($)<input type="number" id="pPx" step="0.5"><span class="small">Vide = prix actuel</span></label>
+  </div>
+  <div class="row" style="margin-top:10px"><button class="ghost" id="pReset">Remettre à zéro</button><button class="ghost" id="pAllIn">Préremplir : tous les HYPE hors garantie déposés</button></div>
+  <div id="planOut" class="box"></div>
+</div>
+
+<!-- SCENARIOS -->
+<div id="scenarios" class="card section">
+  <h2>Scénarios de prix <span class="pill" id="scState">état actuel</span></h2>
+  <div class="sub">Ce que vaudrait ta position à différents prix (sans liquidation ni nouvelle opération).</div>
+  <div class="row" style="margin-top:8px"><label class="f" style="flex:1">Prix à tester (séparés par des virgules)<input type="text" id="scPrices" value="40,50,60,70,80,90,100,120,150,200"></label></div>
+  <table id="tSc" style="margin-top:8px"><thead><tr><th>Prix HYPE</th><th class="r">Health factor</th><th class="r">Marge avant liq.</th><th class="r">Valeur nette</th><th class="r">vs aujourd'hui</th><th class="r">HYPE à vendre pour solder</th><th class="r">HYPE restants</th></tr></thead><tbody></tbody></table>
+</div>
+
+<!-- LIQUIDATION SIM -->
+<div id="liqsim" class="card section">
+  <h2>Et si je suis liquidé ? <span class="pill" id="lqState">état actuel</span></h2>
+  <div class="sub">Fais glisser le prix vers le bas. Hypothèse : entre les deux seuils, une tranche de 20 % est reprise (la réalité peut être pire). Pénalités éventuelles non comptées.</div>
+  <div style="margin-top:12px"><input type="range" id="lqPx" min="5" max="150" step="0.5" value="50"></div>
+  <div class="row small"><span>Prix simulé : <b id="lqPxTxt"></b></span><span style="margin-left:auto">Si le prix remonte ensuite à <input type="number" id="lqRebound" value="100" style="width:80px"> $</span></div>
+  <div id="lqOut" class="box"></div>
+  <table id="tLq" style="margin-top:8px"><thead><tr><th>Le HYPE tombe à</th><th>Ce qui se passe</th><th class="r">Il te reste</th><th class="r">HYPE à toi</th><th class="r">Si remontée</th></tr></thead><tbody></tbody></table>
+</div>
+
+<!-- SORTIE -->
+<div id="sortie" class="card section">
+  <h2>Plan de sortie : tout rembourser plus tard <span class="pill" id="exState">état actuel</span></h2>
+  <div class="form">
+    <label class="f">Prix de revente ($)<input type="number" id="exPx" value="100" step="1"></label>
+    <label class="f">Dans combien de mois ?<input type="number" id="exM" value="4" min="0" step="1"></label>
+    <label class="f">Frais de trading estimés (%)<input type="number" id="exFee" value="0.1" step="0.05"></label>
+  </div>
+  <div id="exOut" class="box"></div>
+</div>
+
+<!-- ALERTES -->
+<div id="alertes" class="card section">
+  <h2>Alertes</h2>
+  <div class="sub">Tant que cette page est ouverte, elle se met à jour toutes les 30 secondes et peut sonner + envoyer une notification.</div>
+  <div class="row" style="margin-top:10px">
+    <label><input type="checkbox" id="alertOn"> Alerte si la marge avant liquidation partielle passe sous</label>
+    <input type="number" id="alertThr" min="1" max="90" value="15" style="width:70px"> %
+    <button class="ghost" id="testAlert">Tester le son</button>
+  </div>
+  <div class="row" style="margin-top:6px"><label><input type="checkbox" id="alertArrive" checked> Me prévenir quand des HYPE arrivent sur mon solde spot (fin de déstaking)</label></div>
+  <div class="small muted" id="alertState" style="margin-top:6px"></div>
+</div>
+
+<div class="card section">
+  <h2>Marchés Earn</h2>
+  <div class="sub">Taux variables selon l'utilisation (part de l'argent prêté déjà empruntée).</div>
+  <table id="tRes"><thead><tr><th>Jeton</th><th class="r">Utilisation</th><th class="r">Taux emprunt</th><th class="r">Taux prêt</th><th class="r">LTV max</th><th class="r">Liq. partielle</th><th class="r">Liq. totale</th></tr></thead><tbody></tbody></table>
+</div>
+
+<!-- COMPRENDRE -->
+<div id="comprendre" class="card section">
+  <h2>Comprendre</h2>
+  <details open><summary>Ton montage en une phrase</summary><p>Tu as déposé du HYPE en garantie et emprunté des dollars (USDC, USDT0) dessus. Tant que ta garantie vaut nettement plus que ta dette, tout va bien.</p></details>
+  <details><summary>Les 3 seuils</summary><p><b>Health factor 100 %</b> (LTV 65 %) : tu ne peux plus emprunter ni retirer de garantie. Aucune vente.<br><b>Liquidation partielle</b> (dette &gt; 82,5 % de la garantie) : le liquidateur d'Hyperliquid reprend ta garantie et ta dette par tranches de 20 %, jusqu'à ce que tu ne sois plus liquidable.<br><b>Liquidation totale</b> (dette &gt; 88,33 % de la garantie) : toute la garantie et toute la dette sont reprises.</p></details>
+  <details><summary>Ce que tu perds vraiment</summary><p>Ta dette disparaît avec les HYPE repris : tu ne dois jamais plus que ta garantie. Mais les HYPE repris ne reviennent pas, même si le prix remonte. Les HYPE hors garantie (spot, staking) ne sont jamais touchés, mais ils ne te protègent pas non plus.</p></details>
+  <details><summary>Pourquoi le seuil bouge sans rien faire</summary><p>Les intérêts (≈ 5 %/an) grossissent la dette chaque heure : ton prix de liquidation monte doucement.</p></details>
+  <details><summary>Réemprunter au maximum</summary><p>Quel que soit le prix, emprunter jusqu'à un health factor de 100 % place la liquidation partielle à environ 21 % sous le prix du moment. Un HYPE « bas » ne rend pas l'emprunt plus sûr.</p></details>
+  <details><summary>Déstaking</summary><p>Retirer des HYPE du staking prend 1 jour (fin de délégation) puis 7 jours (file d'attente vers le spot). Ensuite il faut les déposer en garantie (Earn → Supply) pour qu'ils protègent.</p></details>
+</div>
+
+<div class="foot">Lecture seule de l'API publique d'Hyperliquid : cette page ne peut rien faire sur ton compte. Calculs estimés à partir des règles publiées (docs Hyperliquid : manual borrows, portfolio margin). En cas d'écart, l'interface Hyperliquid fait foi. Pas un conseil financier.</div>
+</div>
+
+<script>
+const API="https://api.hyperliquid.xyz/info", DEFAULT_ADDR="0x36693fd5fCfE40cb21438C4E1EC8088d4b89AD1c", REFRESH_MS=30000, $=id=>document.getElementById(id);
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+let addr=store("hl_addr")||DEFAULT_ADDR; $("addr").value=addr;
+const nf=(x,d=2)=>Number(x).toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d});
+const usd=(x,d=0)=>(x<0?"−":"")+nf(Math.abs(x),d)+" $";
+const pct=(x,d=1)=>nf(x*100,d)+" %";
+const px=x=>!isFinite(x)?"—":x>=1000?usd(x,0):x>=1?usd(x,2):usd(x,4);
+const sgn=x=>(x>=0?"+":"−")+nf(Math.abs(x),0)+" $";
+async function q(b){const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});if(!r.ok)throw new Error("API "+r.status);return r.json()}
+
+let M=null,candles=null,candlesAt=0,lastAlert=0,lastSpotHype=null;
+
+async function load(){
+  $("err").style.display="none";
+  try{
+    const [mc,reserves,bl,spot,perp,ds,dh]=await Promise.all([
+      q({type:"spotMetaAndAssetCtxs"}),q({type:"allBorrowLendReserveStates"}),
+      q({type:"borrowLendUserState",user:addr}),q({type:"spotClearinghouseState",user:addr}),
+      q({type:"clearinghouseState",user:addr}),q({type:"delegatorSummary",user:addr}),q({type:"delegatorHistory",user:addr})]);
+    M=build(mc,reserves,bl,spot,perp,ds,dh);
+    if(Date.now()-candlesAt>30*60*1000){try{candles=await q({type:"candleSnapshot",req:{coin:"HYPE",interval:"1d",startTime:Date.now()-400*86400000,endTime:Date.now()}});candlesAt=Date.now()}catch(e){}}
+    renderAll();
+    $("updated").textContent="Mis à jour à "+new Date().toLocaleTimeString("fr-FR")+" · actualisation auto toutes les 30 s";
+    $("liveDot").className="dot";
+  }catch(e){$("err").textContent="Impossible de lire les données : "+e.message+". Vérifie ta connexion et l'adresse.";$("err").style.display="block";$("liveDot").className="dot off"}
+}
+
+function build(mc,reserves,bl,spot,perp,ds,dh){
+  const [meta,ctxs]=mc, names={}; meta.tokens.forEach(t=>names[t.index]=t.name);
+  const spotPx={0:1}; meta.universe.forEach(p=>{if(p.tokens[1]===0){const c=ctxs[p.index];const v=parseFloat(c&&(c.midPx||c.markPx));if(v>0)spotPx[p.tokens[0]]=v}});
+  const res={}; reserves.forEach(([i,r])=>{const ltv=+r.ltv;res[i]={idx:i,name:names[i]||("#"+i),ltv,lt:ltv>0?(1+ltv)/2:0,ft:ltv>0?ltv+(1-ltv)*2/3:0,px:+r.oraclePx,br:+r.borrowYearlyRate,sr:+r.supplyYearlyRate,util:+r.utilization}});
+  const coll=[],lent=[],debts=[];
+  (bl.tokenToState||[]).forEach(([i,st])=>{const r=res[i]||{name:names[i],ltv:0,lt:0,ft:0,px:spotPx[i]||0,br:0,sr:0};const s=+st.supply.value,b=+st.borrow.value;
+    if(s>0)(r.ltv>0?coll:lent).push({idx:i,name:r.name,amt:s,px:r.px,val:s*r.px,ltv:r.ltv,lt:r.lt,ft:r.ft,rate:r.sr});
+    if(b>0)debts.push({idx:i,name:r.name,amt:b,px:r.px,val:b*r.px,rate:r.br})});
+  const H=res[150]||{px:spotPx[150]||0,ltv:.65,lt:.825,ft:.65+.35*2/3,name:"HYPE"};
+  const hColl=(coll.find(c=>c.idx===150)||{amt:0}).amt;
+  const others=coll.filter(c=>c.idx!==150);
+  const oW=others.reduce((s,o)=>s+o.val*o.ltv,0),oL=others.reduce((s,o)=>s+o.val*o.lt,0),oF=others.reduce((s,o)=>s+o.val*o.ft,0),oV=others.reduce((s,o)=>s+o.val,0);
+  const bal=spot.balances||[];
+  const hSpot=+(bal.find(b=>b.coin==="HYPE")||{total:0}).total;
+  const stables=bal.filter(b=>["USDC","USDT0","USDH","USDE"].includes(b.coin)).reduce((s,b)=>s+(+b.total)*(spotPx[b.token]||1),0);
+  const otherSpot=bal.filter(b=>b.coin!=="HYPE"&&!["USDC","USDT0","USDH","USDE"].includes(b.coin)).reduce((s,b)=>s+(+b.total)*(spotPx[b.token]||0),0);
+  const hStaked=+(ds&&ds.delegated||0)+(+(ds&&ds.undelegated||0)), hPending=+(ds&&ds.totalPendingWithdrawal||0);
+  const pend=(Array.isArray(dh)?dh:[]).filter(e=>e.delta&&e.delta.withdrawal&&e.delta.withdrawal.phase==="initiated"&&e.time>Date.now()-7.2*86400000).map(e=>({amt:+e.delta.withdrawal.amount,eta:e.time+7*86400000}));
+  const D=debts.reduce((s,o)=>s+o.val,0), L=lent.reduce((s,o)=>s+o.val,0);
+  const rate=D>0?debts.reduce((s,o)=>s+o.val*o.rate,0)/D:0.05;
+  return {res,coll,lent,debts,H,P:H.px,hColl,hSpot,hStaked,hPending,pend,stables,otherSpot,oW,oL,oF,oV,D,L,rate,health:bl.health,hfApi:bl.healthFactor!=null?+bl.healthFactor:null,perp};
+}
+
+// --- modèle d'état (simplifié autour du HYPE) ---
+function baseState(){const m=M;return {coll:m.hColl,out:m.hSpot+m.hStaked+m.hPending,D:m.D,cashOut:0}}
+function metrics(s,P){const H=M.H;const Cw=s.coll*P*H.ltv+M.oW, Cl=s.coll*P*H.lt+M.oL, Cf=s.coll*P*H.ft+M.oF, C=s.coll*P+M.oV;
+  const r={Cw,Cl,Cf,C,hf:s.D>0?Cw/s.D:Infinity,
+    liqP:s.D>0&&s.coll>0?(s.D-M.oL)/(s.coll*H.lt):0, liqF:s.D>0&&s.coll>0?(s.D-M.oF)/(s.coll*H.ft):0, hf100:s.D>0&&s.coll>0?(s.D-M.oW)/(s.coll*H.ltv):0,
+    net:(s.coll+s.out)*P+M.oV+M.L+M.stables+M.otherSpot-s.D, ltv:C>0?s.D/C:0};
+  r.margin=r.liqP>0?1-r.liqP/P:1; r.marginF=r.liqF>0?1-r.liqF/P:1; return r}
+function planState(){
+  const s=baseState(),P=planPx(),fee=0.001;
+  const add=Math.min(+$("pAdd").value||0,s.out); s.coll+=add; s.out-=add;
+  const sell=Math.min(+$("pSell").value||0,s.coll); s.coll-=sell; const proceeds=sell*P*(1-fee);
+  if($("pSellUse").value==="repay"){const rp=Math.min(proceeds,s.D);s.D-=rp;s.cashOut+=proceeds-rp}else s.cashOut+=proceeds;
+  s.D=Math.max(0,s.D-(+$("pRepay").value||0));
+  const b=+$("pBorrow").value||0; s.D+=b; if($("pBorrowUse").value==="buy")s.coll+=b*(1-fee)/P; else s.cashOut+=b;
+  s.active=add||sell||(+$("pRepay").value)||b; s.add=add; s.sell=sell; s.borrow=b; return s}
+function planPx(){const v=parseFloat($("pPx").value);return v>0?v:M.P}
+
+function level(m,mt){
+  if(m.health==="marketLiquidatable"||m.health==="backstopLiquidatable"||(m.D>0&&mt.margin<=0))return{k:"red",t:"Liquidation en cours",e:"🚨"};
+  if(m.D===0)return{k:"green",t:"Aucun emprunt",e:"🟢"};
+  const b=mt.margin; if(b<.10)return{k:"red",t:"Danger",e:"🔴"}; if(b<.20)return{k:"orange",t:"Risque élevé",e:"🟠"}; if(b<.35)return{k:"orange",t:"Attention",e:"🟠"}; if(b<.50)return{k:"yellow",t:"À surveiller",e:"🟡"}; return{k:"green",t:"Confortable",e:"🟢"}}
+
+function renderAll(){renderState();renderHoldings();renderChart();renderPlan();renderRes();checkAlerts()}
+
+function renderState(){
+  const m=M,s=baseState(),mt=metrics(s,m.P),lv=level(m,mt);
+  document.title=lv.e+" marge "+(m.D>0?pct(mt.margin,0):"∞")+" · Cockpit HL";
+  $("etat").className="banner section s-"+lv.k; $("lvl").textContent=lv.e+" "+lv.t;
+  if(m.D===0){$("msg").textContent="Aucun emprunt : pas de liquidation possible.";$("det").textContent=""}
+  else if(lv.t==="Liquidation en cours"){$("msg").textContent="Ton compte est en zone de liquidation.";$("det").textContent="Vérifie sur app.hyperliquid.xyz. Rembourser ou ajouter de la garantie arrête la reprise."}
+  else{$("msg").textContent="Liquidation partielle si le HYPE passe sous "+px(mt.liqP)+" (−"+pct(mt.margin)+"), totale sous "+px(mt.liqF)+" (−"+pct(mt.marginF)+").";
+    let d="HYPE à "+px(m.P)+". ";
+    if(mt.hf<=1)d+="Health factor sous 100 % : plus d'emprunt ni de retrait de garantie possible. ";
+    const outH=s.out; if(outH>0.01)d+=nf(outH,1)+" HYPE sont hors garantie et ne te protègent pas. ";
+    d+="Les intérêts montent ton seuil d'environ "+usd(m.D*m.rate/12/(s.coll*m.H.lt),2)+"/mois.";$("det").textContent=d}
+  $("k1l").textContent="Prix du HYPE";$("k1").textContent=px(m.P);
+  $("k2").textContent=m.D>0?px(mt.liqP):"—";$("k2h").textContent=m.D>0?"Marge −"+pct(mt.margin)+" · une partie de la garantie est reprise.":"";
+  $("k3").textContent=m.D>0?px(mt.liqF):"—";$("k3h").textContent=m.D>0?"Marge −"+pct(mt.marginF)+" · tout est repris.":"";
+  const hf=m.hfApi!=null?m.hfApi:mt.hf;$("k4").textContent=m.D>0?pct(hf,1):"—";$("k4").className="val "+(hf<=1?"c-orange":"c-green");
+  $("k4h").textContent=m.D===0?"":hf<=1?"Sous 100 % : plus d'emprunt, mais pas encore de liquidation.":"Au-dessus de 100 % : emprunt encore possible.";
+  // jauge
+  const g=$("gauge");g.innerHTML="";if(m.D===0||mt.C===0){$("gaugeTxt").textContent="Pas d'emprunt.";return}
+  const a=m.H.ltv,b=m.H.lt,c=m.H.ft,cur=Math.min(mt.ltv,1);
+  g.style.background=`linear-gradient(90deg,var(--green) 0%,var(--green) ${a*60}%,var(--yellow) ${a*100}%,var(--orange) ${b*100}%,var(--red) ${c*100}%,var(--red) 100%)`;
+  g.insertAdjacentHTML("beforeend",`<div class="gmark" style="left:${a*100}%"><span>HF 100 % (${pct(a,0)})</span></div><div class="gmark alt" style="left:${b*100}%"><span>Partielle ${pct(b,1)}</span></div><div class="gmark" style="left:${c*100}%"><span>Totale ${pct(c,1)}</span></div><div class="gcur" style="left:${cur*100}%"></div><div class="gcurlab" style="left:${cur*100}%">Toi : ${pct(mt.ltv,1)}</div>`);
+  $("gaugeTxt").textContent="Ta dette = "+pct(mt.ltv,1)+" de ta garantie. Liquidation partielle à "+pct(b,1)+", totale à "+pct(c,1)+".";
+}
+
+function renderHoldings(){
+  const m=M,P=m.P,s=baseState(),mt=metrics(s,P),tb=$("tHype").querySelector("tbody");
+  const rows=[["En garantie (Earn)",m.hColl,true],["Solde spot",m.hSpot,false],["En staking",m.hStaked,false],["En déstaking (file 7 j)",m.hPending,false]];
+  tb.innerHTML=rows.filter(r=>r[1]>0.01||r[0].startsWith("En garantie")).map(r=>`<tr><td>${r[0]}</td><td class="r">${nf(r[1],2)}</td><td class="r">${usd(r[1]*P)}</td><td class="r">${r[2]?'<span class="pill c-green">Oui</span>':'<span class="pill c-orange">Non</span>'}</td></tr>`).join("")
+    +`<tr><td><b>Total HYPE</b></td><td class="r"><b>${nf(s.coll+s.out,2)}</b></td><td class="r"><b>${usd((s.coll+s.out)*P)}</b></td><td></td></tr>`
+    +(m.stables>0.5?`<tr><td>Stablecoins sur le wallet</td><td></td><td class="r">${usd(m.stables)}</td><td class="r muted">pour rembourser</td></tr>`:"")
+    +(m.L>0.5?`<tr><td>Stablecoins prêtés dans Earn</td><td></td><td class="r">${usd(m.L)}</td><td class="r muted">rapportent</td></tr>`:"");
+  let note="";
+  m.pend.forEach(p=>{const left=p.eta-Date.now();note+=`<div class="${left>0?'warn':'ok'}">${left>0?"⏳":"✅"} ${nf(p.amt,2)} HYPE en déstaking : arrivée prévue <b>${new Date(p.eta).toLocaleString("fr-FR",{weekday:"long",day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})}</b>${left>0?" (dans "+fmtDur(left)+")":""}. Ensuite : Earn → Supply pour qu'ils protègent.</div>`});
+  if(m.hSpot>0.01&&m.D>0){const alt=metrics({coll:s.coll+m.hSpot,out:0,D:m.D},P);note+=`<div class="warn">${nf(m.hSpot,2)} HYPE dorment sur ton solde spot. Déposés en garantie, ta liquidation partielle passerait de ${px(mt.liqP)} à <b>${px(alt.liqP)}</b>.</div>`}
+  if(s.out>0.01&&m.D>0){const all=metrics({coll:s.coll+s.out,out:0,D:m.D},P);note+=`<div class="small muted" style="margin-top:8px">Si tous tes HYPE hors garantie étaient déposés : liquidation partielle ${px(all.liqP)} (−${pct(all.margin,0)}), totale ${px(all.liqF)}. Mais en cas de liquidation totale, il ne te resterait plus aucun HYPE.</div>`}
+  $("outsideNote").innerHTML=note;
+  const td=$("tDebt").querySelector("tbody");td.innerHTML=m.debts.length?m.debts.map(o=>`<tr><td><b>${o.name}</b></td><td class="r">${nf(o.amt,2)}</td><td class="r">${pct(o.rate,2)}</td><td class="r">${usd(o.val*o.rate/365,2)}</td></tr>`).join("")+`<tr><td><b>Total</b></td><td class="r"><b>${usd(m.D,2)}</b></td><td></td><td class="r"><b>${usd(m.D*m.rate/365,2)}</b></td></tr>`:'<tr><td colspan="4" class="muted">Aucun emprunt.</td></tr>';
+  $("net").textContent=usd(mt.net);
+  $("lev").textContent=mt.net>0?nf((s.coll+s.out)*P/mt.net,2)+"×":"—";
+  $("canBorrow").textContent=usd(Math.max(0,mt.Cw-m.D));
+  $("canWithdraw").textContent=m.D>0?nf(Math.max(0,(mt.Cw-m.D)/(P*m.H.ltv)),2):nf(m.hColl,2);
+}
+function fmtDur(ms){const h=Math.floor(ms/3600000),d=Math.floor(h/24);return d>0?d+" j "+(h%24)+" h":h+" h "+Math.floor(ms/60000)%60+" min"}
+
+function renderChart(){
+  const el=$("chart"),m=M,mt=metrics(baseState(),m.P);
+  if(!candles||!candles.length){el.innerHTML='<div class="muted small">Graphique indisponible.</div>';return}
+  const data=candles.slice(-90).map(c=>({t:c.t,c:+c.c,l:+c.l}));
+  const W=1000,H=280,P={l:52,r:12,t:12,b:24};
+  const vals=data.flatMap(d=>[d.c,d.l]);[mt.liqP,mt.liqF,mt.hf100].forEach(v=>{if(v>0)vals.push(v)});
+  let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*.08;lo-=pad;hi+=pad;
+  const x=i=>P.l+i*(W-P.l-P.r)/(data.length-1),y=v=>P.t+(hi-v)*(H-P.t-P.b)/(hi-lo);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Prix 90 jours">`;
+  for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4;s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${P.l-6}" y="${y(v)+4}" text-anchor="end">${nf(v,0)}</text>`}
+  [0,30,60,data.length-1].forEach(i=>{if(data[i])s+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle">${new Date(data[i].t).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}</text>`});
+  const line=(v,col,lab,dash,left)=>{if(!(v>0))return"";return `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="${col}" stroke-width="2" stroke-dasharray="${dash}"/><text x="${left?P.l+6:W-P.r-4}" y="${y(v)-5}" text-anchor="${left?"start":"end"}" style="fill:${col};font-weight:700">${lab} ${px(v)}</text>`};
+  if(mt.liqF>0)s+=`<rect x="${P.l}" y="${y(mt.liqF)}" width="${W-P.l-P.r}" height="${Math.max(0,H-P.b-y(mt.liqF))}" fill="var(--red)" opacity=".08"/>`;
+  s+=line(mt.hf100,"var(--muted)","Plus d'emprunt","3 4",true)+line(mt.liqP,"var(--orange)","Partielle","6 4",false)+line(mt.liqF,"var(--red)","Totale","6 4",true);
+  s+=`<path d="${data.map((d,i)=>(i?"L":"M")+x(i).toFixed(1)+","+y(d.c).toFixed(1)).join("")}" fill="none" stroke="var(--accent)" stroke-width="2.2"/><circle cx="${x(data.length-1)}" cy="${y(m.P)}" r="4.5" fill="var(--accent)"/></svg>`;
+  el.innerHTML=s;
+  const all=candles.map(c=>({c:+c.c,l:+c.l}));let worst=0,hits=0;const b=mt.margin;
+  for(let i=0;i<all.length-1;i++){let lo2=1e9;for(let j=i+1;j<=Math.min(i+7,all.length-1);j++)lo2=Math.min(lo2,all[j].l);worst=Math.max(worst,1-lo2/all[i].c)}
+  if(m.D>0&&b>0)for(let i=0;i<all.length-1;){let h=false;for(let j=i+1;j<=Math.min(i+7,all.length-1);j++)if(all[j].l<=all[i].c*(1-b)){h=true;break}if(h){hits++;i+=7}else i++}
+  const lo90=Math.min(...data.map(d=>d.l)),hi90=Math.max(...data.map(d=>d.c));
+  $("histStat").innerHTML=`Sur ${all.length} jours : pire chute en moins de 7 jours <b>−${pct(worst,0)}</b>. `+(m.D>0&&b>0?`Une baisse d'au moins −${pct(b,0)} (ta marge) en moins d'une semaine est arrivée <b>${hits} fois</b>. `:"")+`90 derniers jours : de ${px(lo90)} à ${px(hi90)}. <span class="muted">Le passé ne prédit pas l'avenir.</span>`;
+}
+
+function renderPlan(){
+  const m=M,base=baseState(),Pp=planPx(),s=planState(),b0=metrics(base,Pp),b1=metrics(s,Pp);
+  $("pAddHint").textContent="Disponible hors garantie : "+nf(base.out,2)+" HYPE (dont "+nf(m.hPending,2)+" en déstaking)";
+  const row=(l,a,b,f,better)=>{const d=b-a;const cls=Math.abs(d)<1e-9?"":(better(d)?"c-green":"c-red");return `<tr><td>${l}</td><td class="r">${f(a)}</td><td class="r ${cls}"><b>${f(b)}</b></td></tr>`};
+  const up=d=>d>0,dn=d=>d<0;
+  let h=`<table><thead><tr><th>${s.active?"Avant → après ton plan":"Ta situation (aucun plan saisi)"} · HYPE à ${px(Pp)}</th><th class="r">Avant</th><th class="r">Après</th></tr></thead><tbody>`;
+  h+=row("HYPE en garantie",base.coll,s.coll,v=>nf(v,2),up)+row("HYPE hors garantie",base.out,s.out,v=>nf(v,2),()=>true)+row("Dette",base.D,s.D,v=>usd(v),dn)
+   +row("Liquidation partielle",b0.liqP,b1.liqP,v=>v>0?px(v):"aucune",dn)+row("Liquidation totale",b0.liqF,b1.liqF,v=>v>0?px(v):"aucune",dn)
+   +row("Marge avant liq. partielle",b0.margin,b1.margin,v=>"−"+pct(Math.max(0,v),1),up)+row("Health factor",b0.hf,b1.hf,v=>isFinite(v)?pct(v,0):"∞",up)
+   +row("Valeur nette sur Hyperliquid",b0.net,b1.net-s.cashOut*0,v=>usd(v),up);
+  h+=`</tbody></table>`;
+  const notes=[];
+  if(s.cashOut>0.5)notes.push("💶 Argent sorti : <b>"+usd(s.cashOut)+"</b>.");
+  if(s.sell>0&&b0.hf<1)notes.push("⚠️ Avec un health factor sous 100 %, Hyperliquid devrait refuser le retrait de garantie. Il faudra d'abord rembourser ou ajouter de la garantie.");
+  if(s.sell>0){const maxW=Math.max(0,(metrics({coll:base.coll+s.add,out:0,D:base.D-(+$("pRepay").value||0)},Pp).Cw-(base.D-(+$("pRepay").value||0)))/(Pp*m.H.ltv));if(s.sell>maxW+1e-6)notes.push("⚠️ En un seul retrait tu ne pourrais sortir qu'environ "+nf(maxW,2)+" HYPE (health factor ≥ 100 %). Il faudra plusieurs allers-retours (retirer, vendre, rembourser).")}
+  if(s.borrow>0&&s.borrow>Math.max(0,b0.Cw-base.D)+1)notes.push("⚠️ Emprunt au-delà du plafond actuel (≈ "+usd(Math.max(0,b0.Cw-base.D))+") : il faudrait plusieurs tours emprunter → racheter → déposer.");
+  if(s.borrow>0&&$("pBorrowUse").value==="out")notes.push("ℹ️ L'argent emprunté gardé à côté ne compte pas comme garantie : ta liquidation monte. Il ne protège que si tu rembourses à temps, et la liquidation est automatique.");
+  if(s.D>0&&b1.margin<.2)notes.push("🔴 Après ce plan, ta marge serait sous 20 % : une semaine ordinaire du HYPE pourrait suffire.");
+  if(s.D===0&&base.D>0)notes.push("✅ Plus de dette : plus de liquidation possible ni d'intérêts.");
+  $("planOut").innerHTML=h+(notes.length?'<div class="small" style="margin-top:8px">'+notes.join("<br>")+"</div>":"");
+  ["scState","lqState","exState"].forEach(id=>{$(id).textContent=s.active?"avec ton plan":"état actuel";$(id).className="pill"+(s.active?" c-green":"")});
+  renderScenarios(s);renderLiq(s);renderExit(s);
+}
+
+function renderScenarios(s){
+  const m=M,cur=metrics(s,M.P).net,tb=$("tSc").querySelector("tbody");
+  const prices=$("scPrices").value.split(/[,; ]+/).map(Number).filter(v=>v>0).sort((a,b)=>a-b);
+  tb.innerHTML=prices.map(P=>{const t=metrics(s,P);let status="";
+    if(s.D>0&&P<=t.liqF)status=' <span class="pill c-red">liq. totale</span>';else if(s.D>0&&P<=t.liqP)status=' <span class="pill c-orange">liq. partielle</span>';
+    const sell=s.D/P,rest=s.coll+s.out-sell;
+    return `<tr${Math.abs(P-m.P)/m.P<.04?' class="hl"':''}><td><b>${px(P)}</b>${status}</td><td class="r">${s.D>0?pct(t.hf,0):"∞"}</td><td class="r">${s.D>0?"−"+pct(Math.max(0,t.margin),0):"—"}</td><td class="r">${usd(t.net)}</td><td class="r ${t.net-cur>=0?'c-green':'c-red'}">${sgn(t.net-cur)}</td><td class="r">${nf(sell,1)}</td><td class="r">${rest>0?nf(rest,1):"—"}</td></tr>`}).join("");
+}
+
+function liqOutcome(s,P){ // une tranche de 20 % entre les seuils
+  const t=metrics(s,P);
+  if(s.D===0||P>t.liqP)return{st:"rien",coll:s.coll,D:s.D};
+  if(P>t.liqF)return{st:"partielle",coll:s.coll*.8,D:s.D*.8};
+  return{st:"totale",coll:0,D:0};
+}
+function renderLiq(s){
+  const P=+$("lqPx").value,R=+$("lqRebound").value||100;$("lqPxTxt").textContent=px(P);
+  const t=metrics(s,P),o=liqOutcome(s,P),mine=(o.coll+s.out),left=mine*P+M.oV+M.L+M.stables-o.D,reb=mine*R-o.D+M.L+M.stables;
+  const noLiqReb=(s.coll+s.out)*R-s.D+M.L+M.stables;
+  const txt={rien:'<span class="c-green"><b>Rien ne se passe.</b></span> Tu gardes tous tes HYPE.',partielle:'<span class="c-orange"><b>Liquidation partielle.</b></span> Environ 20 % de ta garantie ('+nf(s.coll*.2,1)+' HYPE) et 20 % de ta dette sont repris. Si le prix reste dans cette zone, d\'autres tranches peuvent suivre.',totale:'<span class="c-red"><b>Liquidation totale.</b></span> Toute ta garantie ('+nf(s.coll,1)+' HYPE) et toute ta dette sont reprises. Tu ne dois plus rien.'}[o.st];
+  $("lqOut").innerHTML=`${txt}<div style="margin-top:6px">Il te reste ≈ <b>${usd(left)}</b> (${nf(mine,1)} HYPE à toi${o.D>0?", dette "+usd(o.D):""}). Si le HYPE remonte ensuite à ${px(R)} : <b>${usd(reb)}</b>`+(o.st!=="rien"?` <span class="c-red">(au lieu de ${usd(noLiqReb)} sans liquidation : ${sgn(reb-noLiqReb)})</span>`:"")+`</div><div class="small muted" style="margin-top:4px">Seuils : partielle ${t.liqP>0?px(t.liqP):"—"} · totale ${t.liqF>0?px(t.liqF):"—"}</div>`;
+  const t0=metrics(s,M.P),pts=[M.P,t0.liqP*1.02,t0.liqP*.99,t0.liqF*.98,t0.liqF*.8,t0.liqF*.6].filter(v=>v>0);
+  const uniq=[...new Set(pts.map(v=>Math.round(v*2)/2))].sort((a,b)=>b-a);
+  $("tLq").querySelector("tbody").innerHTML=uniq.map(P=>{const o=liqOutcome(s,P),mine=o.coll+s.out;const lab={rien:'<span class="c-green">rien</span>',partielle:'<span class="c-orange">1 tranche reprise</span>',totale:'<span class="c-red">liquidation totale</span>'}[o.st];
+    return `<tr><td>${px(P)}</td><td>${lab}</td><td class="r">${usd(mine*P-o.D+M.L+M.stables)}</td><td class="r">${nf(mine,1)}</td><td class="r">${usd(mine*R-o.D+M.L+M.stables)}</td></tr>`}).join("");
+}
+
+function renderExit(s){
+  const P=+$("exPx").value||100,mo=+$("exM").value||0,fee=(+$("exFee").value||0)/100;
+  const D=s.D*(1+M.rate*mo/12),sell=D/(P*(1-fee)),rest=s.coll+s.out-sell,val=rest*P,today=metrics(s,M.P).net;
+  if(s.D===0){$("exOut").innerHTML="Pas de dette : rien à rembourser. Tes "+nf(s.coll+s.out,1)+" HYPE vaudraient "+usd((s.coll+s.out)*P)+".";return}
+  const t=metrics({coll:s.coll,out:s.out,D},P),maxW=Math.max(0,(t.Cw-D)/(P*M.H.ltv));
+  $("exOut").innerHTML=`<table><tbody>
+   <tr><td>Dette dans ${mo} mois (taux ${pct(M.rate,1)})</td><td class="r"><b>${usd(D)}</b></td></tr>
+   <tr><td>HYPE à vendre pour tout rembourser</td><td class="r"><b>${nf(sell,1)}</b></td></tr>
+   <tr><td>HYPE restants, sans dette</td><td class="r"><b>${rest>0?nf(rest,1):"—"}</b></td></tr>
+   <tr><td>Valeur à ${px(P)}</td><td class="r"><b>${usd(Math.max(0,val))}</b> (≈ ${nf(Math.max(0,val)/1.155,0)} €)</td></tr>
+   <tr><td>Par rapport à ta valeur nette d'aujourd'hui</td><td class="r ${val-today>=0?'c-green':'c-red'}">${sgn(val-today)}</td></tr></tbody></table>
+   <div class="small muted" style="margin-top:6px">Étapes : retirer des HYPE de la garantie (≈ ${nf(maxW,1)} retirables d'un coup à ce prix${s.out>0.01?", plus tes "+nf(s.out,1)+" HYPE hors garantie":""}), vendre contre USDC, rembourser l'USDC, échanger USDC → USDT0 pour le reste. Euros au cours indicatif 1,155 $/€. Pense à la fiscalité de ton pays.</div>`;
+}
+
+function renderRes(){
+  const m=M,mine=new Set([...m.coll,...m.lent,...m.debts].map(o=>o.idx));
+  $("tRes").querySelector("tbody").innerHTML=Object.values(m.res).map(r=>`<tr${mine.has(r.idx)?' style="font-weight:700"':''}><td>${r.name}${mine.has(r.idx)?' <span class="pill">toi</span>':''}</td><td class="r">${pct(r.util,0)}</td><td class="r">${pct(r.br,2)}</td><td class="r">${pct(r.sr,2)}</td><td class="r">${r.ltv>0?pct(r.ltv,0):"—"}</td><td class="r">${r.lt>0?pct(r.lt,1):"—"}</td><td class="r">${r.ft>0?pct(r.ft,2):"—"}</td></tr>`).join("");
+}
+
+// alertes
+let ac=null;function beep(){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();[0,.35,.7].forEach(d=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.25,ac.currentTime+d);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d+.3);o.start(ac.currentTime+d);o.stop(ac.currentTime+d+.3)})}catch(e){}}
+function notify(t,b){beep();try{if("Notification"in window&&Notification.permission==="granted")new Notification(t,{body:b})}catch(e){}}
+function checkAlerts(){
+  const mt=metrics(baseState(),M.P),thr=(+$("alertThr").value||15)/100;let msg=[];
+  if($("alertOn").checked&&M.D>0){if(mt.margin<thr){msg.push("⚠️ Marge "+pct(mt.margin)+" (seuil "+pct(thr,0)+")");if(Date.now()-lastAlert>10*60*1000){lastAlert=Date.now();notify("Hyperliquid : marge faible","Marge "+pct(mt.margin)+" · liquidation partielle sous "+px(mt.liqP))}}else msg.push("Alerte marge active · marge actuelle "+pct(mt.margin))}
+  if($("alertArrive").checked){if(lastSpotHype!==null&&M.hSpot>lastSpotHype+0.5)notify("Tes HYPE sont arrivés",nf(M.hSpot,2)+" HYPE sur ton solde spot. Dépose-les en garantie (Earn → Supply).");lastSpotHype=M.hSpot}
+  $("alertState").textContent=msg.join(" · ");
+}
+$("alertOn").addEventListener("change",async e=>{store("hl_alert",e.target.checked?"1":"0");if(e.target.checked){try{if("Notification"in window&&Notification.permission==="default")await Notification.requestPermission()}catch(_){}ac=ac||new(window.AudioContext||window.webkitAudioContext)();lastAlert=0}if(M)checkAlerts()});
+$("alertThr").addEventListener("change",e=>{store("hl_thr",e.target.value);lastAlert=0;if(M)checkAlerts()});
+$("testAlert").addEventListener("click",beep);
+if(store("hl_alert")==="1")$("alertOn").checked=true;if(store("hl_thr"))$("alertThr").value=store("hl_thr");
+
+// plan & simulateurs
+["pAdd","pSell","pSellUse","pRepay","pBorrow","pBorrowUse","pPx"].forEach(id=>$(id).addEventListener("input",()=>M&&renderPlan()));
+["scPrices"].forEach(id=>$(id).addEventListener("input",()=>M&&renderPlan()));
+["lqPx","lqRebound"].forEach(id=>$(id).addEventListener("input",()=>M&&renderLiq(planState())));
+["exPx","exM","exFee"].forEach(id=>$(id).addEventListener("input",()=>M&&renderExit(planState())));
+$("pReset").addEventListener("click",()=>{["pAdd","pSell","pRepay","pBorrow"].forEach(id=>$(id).value=0);$("pPx").value="";renderPlan()});
+$("pAllIn").addEventListener("click",()=>{if(!M)return;$("pAdd").value=(baseState().out).toFixed(2);renderPlan()});
+$("go").addEventListener("click",()=>{const v=$("addr").value.trim();if(!/^0x[0-9a-fA-F]{40}$/.test(v)){$("err").textContent="Adresse invalide.";$("err").style.display="block";return}addr=v;store("hl_addr",v);lastSpotHype=null;load()});
+load();setInterval(load,REFRESH_MS);
+</script>
+</body>
+</html>
