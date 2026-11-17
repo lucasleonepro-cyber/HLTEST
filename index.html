@@ -86,6 +86,9 @@ input[type=checkbox]{accent-color:var(--accent)}
 .tip{position:absolute;pointer-events:none;background:rgba(16,21,29,.94);border:1px solid var(--line2);border-radius:12px;padding:9px 12px;font-size:12.5px;white-space:nowrap;transform:translate(-50%,-110%);opacity:0;transition:opacity .1s;box-shadow:0 10px 30px -10px rgba(0,0,0,.8);z-index:5}
 .tip .tv{font-size:16px;font-weight:750;color:var(--ink);font-variant-numeric:tabular-nums}
 .tip .td{color:var(--muted)}
+#chart{height:380px}@media (max-width:700px){#chart{height:300px}}
+.ohlc{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:12px;min-height:20px}.ohlc b{color:var(--ink);font-weight:600}
+.tfs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;font-size:12.5px;color:var(--ink2)}
 .legend i{display:inline-block;width:18px;height:0;border-top:2px dashed;vertical-align:middle;margin-right:6px}
 .hstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
@@ -93,6 +96,7 @@ input[type=checkbox]{accent-color:var(--accent)}
 .hstats b{display:block;font-size:16px;font-variant-numeric:tabular-nums}.hstats span{font-size:12px;color:var(--muted)}
 @media (max-width:700px){header{position:static}#addr{width:100%;flex:1}header .row{width:100%}.gmark span{display:none}.hstats{grid-template-columns:1fr 1fr}.hero-price{font-size:36px}}
 </style>
+<script src="vendor/lightweight-charts.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -114,9 +118,9 @@ input[type=checkbox]{accent-color:var(--accent)}
     <div><div class="sub" style="font-weight:600;letter-spacing:.04em">HYPE / USD</div>
       <div style="margin-top:6px"><span class="hero-price" id="hPrice">–</span><span class="hero-chg" id="hChg"></span></div>
       <div class="hero-sub" id="hSub"></div></div>
-    <div class="tf" id="tf"><button data-tf="1d">24H</button><button data-tf="7d">7J</button><button data-tf="30d">1M</button><button data-tf="90d" class="on">3M</button><button data-tf="1y">1A</button></div>
+    <div class="tfs"><div class="tf" id="ctype"><button data-ct="candle">Bougies</button><button data-ct="line">Ligne</button></div><div class="tf" id="tf"><button data-tf="1d">24H</button><button data-tf="7d">7J</button><button data-tf="30d">1M</button><button data-tf="90d" class="on">3M</button><button data-tf="1y">1A</button></div></div>
   </div>
-  <div class="chart-wrap" id="chartWrap"><div id="chart"></div><div class="tip" id="tip"></div></div>
+  <div class="ohlc" id="ohlc"></div><div class="chart-wrap" id="chartWrap"><div id="chart"></div></div>
   <div class="legend" id="legend"></div>
   <div class="hstats" id="hstats"></div>
   <div id="histStat" class="small muted" style="margin-top:10px"></div>
@@ -365,42 +369,52 @@ document.querySelectorAll("#tf button").forEach(b=>{if(b.dataset.tf===TF){docume
   b.addEventListener("click",async()=>{TF=b.dataset.tf;store("hl_tf",TF);document.querySelectorAll("#tf button").forEach(x=>x.classList.toggle("on",x===b));$("chart").style.opacity=.5;await loadTF();$("chart").style.opacity=1;if(M)renderChart()})});
 let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(()=>M&&renderChart(),120)});
 
+let lw=null,lwS=null,lwLines=[],lwFitTF=null,CT=(store("hl_ct")||"candle"),lwData=[];
+document.querySelectorAll("#ctype button").forEach(b=>{b.classList.toggle("on",b.dataset.ct===CT);b.addEventListener("click",()=>{CT=b.dataset.ct;store("hl_ct",CT);document.querySelectorAll("#ctype button").forEach(x=>x.classList.toggle("on",x===b));if(lw&&lwS){lw.removeSeries(lwS);lwS=null;lwLines=[]}lwFitTF=null;if(M)renderChart()})});
+function lwInit(){
+  if(lw||!window.LightweightCharts)return;
+  lw=LightweightCharts.createChart($("chart"),{autoSize:true,
+    layout:{background:{type:"solid",color:"transparent"},textColor:"#7b8694",fontFamily:"Inter, sans-serif",fontSize:11},
+    grid:{vertLines:{color:"rgba(255,255,255,.04)"},horzLines:{color:"rgba(255,255,255,.04)"}},
+    rightPriceScale:{borderColor:"rgba(255,255,255,.08)",scaleMargins:{top:.08,bottom:.06}},
+    timeScale:{borderColor:"rgba(255,255,255,.08)",timeVisible:true,secondsVisible:false,rightOffset:4},
+    crosshair:{mode:0,vertLine:{color:"rgba(255,255,255,.3)",labelBackgroundColor:"#1b222c"},horzLine:{color:"rgba(255,255,255,.3)",labelBackgroundColor:"#1b222c"}},
+    localization:{locale:"fr-FR",priceFormatter:v=>nf(v,2)}});
+  lw.subscribeCrosshairMove(prm=>{const d=prm&&prm.time&&lwS?prm.seriesData.get(lwS):null;showOhlc(d||lwData[lwData.length-1],prm&&prm.time)});
+}
+function lwSeries(levels){
+  if(lwS)return;
+  const auto=orig=>{const r=orig();const ls=(window._lvls||[]).map(l=>l.v);if(r&&ls.length){r.priceRange.minValue=Math.min(r.priceRange.minValue,...ls);r.priceRange.maxValue=Math.max(r.priceRange.maxValue,...ls)}return r};
+  lwS=CT==="candle"?lw.addCandlestickSeries({upColor:"#3fd68b",downColor:"#ff5d6c",borderVisible:false,wickUpColor:"#3fd68b",wickDownColor:"#ff5d6c",autoscaleInfoProvider:auto,priceLineColor:"#4ee0c1"})
+    :lw.addAreaSeries({lineColor:"#4ee0c1",topColor:"rgba(78,224,193,.28)",bottomColor:"rgba(78,224,193,0)",lineWidth:2,autoscaleInfoProvider:auto,priceLineColor:"#4ee0c1"});
+}
+function showOhlc(d,hover){
+  const el=$("ohlc");if(!d){el.textContent="";return}
+  const t=new Date(d.time*1000),m=M,mt=M?metrics(baseState(),M.P):null;
+  const date=t.toLocaleString("fr-FR",TFS[TF].iv==="1d"?{weekday:"short",day:"numeric",month:"short",year:"numeric"}:{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  const o=d.open!=null?d:lwData.find(x=>x.time===d.time)||d;
+  const parts=[["",date]];
+  if(o.open!=null){parts.push(["O",nf(o.open,2)],["H",nf(o.high,2)],["B",nf(o.low,2)],["F",nf(o.close,2)]);const ch=o.close/o.open-1;parts.push(["",(ch>=0?"+":"−")+nf(Math.abs(ch)*100,2)+" %"])}
+  el.innerHTML="";parts.forEach(([k,v])=>{const sp=document.createElement("span");if(k){sp.append(k+" ");const b=document.createElement("b");b.textContent=v;sp.append(b)}else{sp.textContent=v}el.append(sp)});
+  if(m&&m.D>0&&mt.liqP>0){const low=o.low!=null?o.low:o.value;const sp=document.createElement("span");sp.textContent=low<=mt.liqF?"⚠ plus bas sous ta liquidation totale actuelle":low<=mt.liqP?"⚠ plus bas sous ta liquidation partielle actuelle":"marge au plus bas : −"+pct(1-mt.liqP/low,1);sp.style.color=low<=mt.liqP?"var(--orange)":"";el.append(sp)}
+}
 function renderChart(){
-  const el=$("chart"),m=M,mt=metrics(baseState(),m.P),raw=tfC[TF];
+  const m=M,mt=metrics(baseState(),m.P),raw=tfC[TF];
   $("hPrice").textContent=px(m.P);
-  if(!raw||!raw.length){el.innerHTML='<div class="muted small" style="padding:40px 0">Graphique indisponible.</div>';return}
-  const data=raw.map(c=>({t:+c.t,o:+c.o,c:+c.c,h:+c.h,l:+c.l}));data[data.length-1].c=m.P;
-  const first=data[0].o,chg=m.P/first-1,hiR=Math.max(...data.map(d=>d.h)),loR=Math.min(...data.map(d=>d.l));
+  if(!window.LightweightCharts){$("chart").innerHTML='<div class="muted small" style="padding:40px 0">Graphique indisponible (bibliothèque non chargée).</div>';return}
+  if(!raw||!raw.length)return;
+  lwInit();
+  const levels=[{v:mt.hf100,c:"#8b95a3",lab:"Plus d'emprunt"},{v:mt.liqP,c:"#ff9b45",lab:"Liq. partielle"},{v:mt.liqF,c:"#ff5d6c",lab:"Liq. totale"}].filter(l=>m.D>0&&l.v>0);
+  window._lvls=levels;lwSeries(levels);
+  lwData=raw.map(c=>({time:Math.floor(+c.t/1000),open:+c.o,high:+c.h,low:+c.l,close:+c.c}));
+  lwS.setData(CT==="candle"?lwData:lwData.map(d=>({time:d.time,value:d.close})));
+  lwLines.forEach(l=>lwS.removePriceLine(l));lwLines=levels.map(l=>lwS.createPriceLine({price:l.v,color:l.c,lineWidth:1,lineStyle:2,axisLabelVisible:true,title:l.lab}));
+  if(lwFitTF!==TF){lw.timeScale().fitContent();lwFitTF=TF}
+  showOhlc(lwData[lwData.length-1]);
+  const first=lwData[0].open,chg=m.P/first-1,hiR=Math.max(...lwData.map(d=>d.high)),loR=Math.min(...lwData.map(d=>d.low));
   $("hChg").textContent=(chg>=0?"▲ +":"▼ −")+nf(Math.abs(chg)*100,2)+" %";$("hChg").className="hero-chg "+(chg>=0?"up":"down");
-  $("hSub").textContent="Sur "+TFS[TF].lab+" · prix oracle Hyperliquid · mis à jour en direct";
-  const W=Math.max(320,el.clientWidth||$("chartWrap").clientWidth||900),H=W<600?260:340,P={l:8,r:64,t:16,b:28};
-  const levels=[{v:mt.hf100,c:"var(--muted)",lab:"Plus d'emprunt"},{v:mt.liqP,c:"var(--orange)",lab:"Liq. partielle"},{v:mt.liqF,c:"var(--red)",lab:"Liq. totale"}].filter(l=>m.D>0&&l.v>0);
-  const vals=data.flatMap(d=>[d.h,d.l]);levels.forEach(l=>vals.push(l.v));
-  let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*.08||1;lo-=pad;hi+=pad;
-  const n=data.length,x=i=>P.l+i*(W-P.l-P.r)/(n-1),y=v=>P.t+(hi-v)*(H-P.t-P.b)/(hi-lo);
-  const step=niceStep((hi-lo)/5);let s=`<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Prix du HYPE sur ${TFS[TF].lab}"><defs><linearGradient id="ga" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--series)" stop-opacity=".28"/><stop offset="1" stop-color="var(--series)" stop-opacity="0"/></linearGradient><linearGradient id="gr" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--red)" stop-opacity=".0"/><stop offset="1" stop-color="var(--red)" stop-opacity=".14"/></linearGradient></defs>`;
-  for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step)s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(255,255,255,.05)"/><text x="${W-P.r+8}" y="${y(v)+4}">${nf(v,v<10?2:0)}</text><!--g-->`;
-  const nt=W<600?3:5;for(let k=0;k<=nt;k++){const i=Math.round(k*(n-1)/nt);const d=new Date(data[i].t);s+=`<text x="${x(i)}" y="${H-8}" text-anchor="${k===0?"start":k===nt?"end":"middle"}">${TF==="1d"?d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}):d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}</text>`}
-  const lv=levels.find(l=>l.lab==="Liq. totale");if(lv&&lv.v>lo)s+=`<rect x="${P.l}" y="${y(lv.v)}" width="${W-P.l-P.r}" height="${Math.max(0,H-P.b-y(lv.v))}" fill="url(#gr)"/>`;
-  const pills=[];levels.forEach(l=>{if(l.v<lo||l.v>hi)return;s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y(l.v)}" y2="${y(l.v)}" stroke="${l.c}" stroke-width="1.5" stroke-dasharray="5 5" opacity=".9"/>`;pills.push({y:y(l.v),bg:l.c,op:.22,tc:l.c,t:nf(l.v,1)})});
-  const path=data.map((d,i)=>(i?"L":"M")+x(i).toFixed(1)+","+y(d.c).toFixed(1)).join("");
-  s+=`<path d="${path}L${x(n-1)},${H-P.b}L${x(0)},${H-P.b}Z" fill="url(#ga)"/><path d="${path}" fill="none" stroke="var(--series)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
-  const yl=y(m.P);s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${yl}" y2="${yl}" stroke="var(--series)" stroke-width="1" stroke-dasharray="2 4" opacity=".5"/>`;pills.push({y:yl,bg:"var(--series)",op:1,tc:"#06100d",t:nf(m.P,2),main:true});
-  pills.sort((a,b)=>a.y-b.y);for(let k=1;k<pills.length;k++)if(pills[k].y-pills[k-1].y<23)pills[k].y=pills[k-1].y+23;
-  for(let k=pills.length-2;k>=0;k--)if(pills[k].y>H-P.b-11){pills[k].y=Math.min(pills[k].y,pills[k+1].y-23)}
-  s=s.replace(/<text x="[^"]+" y="([^"]+)">([^<]*)<\/text><!--g-->/g,(mm,yy,tt)=>pills.some(pp=>Math.abs(pp.y-(+yy-4))<14)?"":`<text x="${W-P.r+8}" y="${yy}">${tt}</text>`);
-  pills.forEach(pp=>{s+=`<rect x="${W-P.r+2}" y="${pp.y-11}" width="${P.r-2}" height="22" rx="6" fill="${pp.bg}" opacity="${pp.op}"/><text x="${W-P.r+8}" y="${pp.y+4}" style="fill:${pp.tc};font-weight:${pp.main?800:700}">${pp.t}</text>`});
-  s+=`<circle cx="${x(n-1)}" cy="${yl}" r="4" fill="var(--series)" stroke="var(--bg)" stroke-width="2"/><g id="xh" style="display:none"><line id="xhl" y1="${P.t}" y2="${H-P.b}" stroke="rgba(255,255,255,.35)" stroke-dasharray="3 3"/><circle id="xhc" r="5" fill="var(--series)" stroke="var(--bg)" stroke-width="2"/></g><rect id="hit" x="${P.l}" y="0" width="${W-P.l-P.r}" height="${H}" fill="transparent"/></svg>`;
-  el.innerHTML=s;
-  const svg=el.querySelector("svg"),tip=$("tip"),xh=$("xh"),hit=$("hit");
-  const move=ev=>{const r=svg.getBoundingClientRect(),cx=((ev.touches?ev.touches[0].clientX:ev.clientX)-r.left)*W/r.width;let i=Math.round((cx-P.l)/(W-P.l-P.r)*(n-1));i=Math.max(0,Math.min(n-1,i));const d=data[i];
-    xh.style.display="";$("xhl").setAttribute("x1",x(i));$("xhl").setAttribute("x2",x(i));$("xhc").setAttribute("cx",x(i));$("xhc").setAttribute("cy",y(d.c));
-    const dt=new Date(d.t);tip.innerHTML="";const v=document.createElement("div");v.className="tv";v.textContent=px(d.c);const dd=document.createElement("div");dd.className="td";dd.textContent=dt.toLocaleString("fr-FR",TF==="1d"||TF==="7d"?{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}:{weekday:"short",day:"numeric",month:"long",year:"numeric"});tip.append(v,dd);
-    if(m.D>0&&mt.liqP>0){const g=document.createElement("div");g.className="td";g.textContent=d.c<=mt.liqF?"⚠ Sous ta liquidation totale actuelle":d.c<=mt.liqP?"⚠ Sous ta liquidation partielle actuelle":"Marge à ce prix : −"+pct(1-mt.liqP/d.c,1);tip.append(g)}
-    tip.style.left=Math.max(70,Math.min(r.width-70,x(i)*r.width/W))+"px";tip.style.top=(y(d.c)*r.height/H)+"px";tip.style.opacity=1};
-  const leave=()=>{xh.style.display="none";tip.style.opacity=0};
-  hit.addEventListener("pointermove",move);hit.addEventListener("pointerdown",move);hit.addEventListener("pointerleave",leave);
-  $("legend").innerHTML=`<span><i style="border-color:var(--series);border-top-style:solid"></i>Prix HYPE</span>`+levels.map(l=>`<span><i style="border-color:${l.c}"></i>${l.lab} · ${px(l.v)}</span>`).join("");
+  $("hSub").textContent="Sur "+TFS[TF].lab+" · bougies "+TFS[TF].iv+" d'Hyperliquid · molette / pincer pour zoomer";
+  $("legend").innerHTML=levels.map(l=>`<span><i style="border-color:${l.c}"></i>${l.lab} · ${px(l.v)}</span>`).join("");
   const dist=m.D>0&&mt.liqP>0?(1-mt.liqP/m.P):null;
   $("hstats").innerHTML=`<div><span>Plus haut ${TFS[TF].lab}</span><b>${px(hiR)}</b></div><div><span>Plus bas ${TFS[TF].lab}</span><b>${px(loR)}</b></div><div><span>Distance liq. partielle</span><b class="${dist==null?"":dist<.2?"c-orange":"c-green"}">${dist==null?"—":"−"+pct(dist,1)}</b></div><div><span>Distance liq. totale</span><b>${m.D>0&&mt.liqF>0?"−"+pct(1-mt.liqF/m.P,1):"—"}</b></div>`;
   if(candles&&candles.length){const all=candles.map(c=>({c:+c.c,l:+c.l}));let worst=0,hits=0;const b=mt.margin;
