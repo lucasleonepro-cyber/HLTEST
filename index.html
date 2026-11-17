@@ -130,7 +130,7 @@ input[type=checkbox]{accent-color:var(--accent)}
       <div class="hero-sub" id="hSub"></div></div>
     <div class="tfs"><div class="tf" id="ctype"><button data-ct="candle">Bougies</button><button data-ct="line">Ligne</button></div><button class="ghost" id="recenter" title="Revenir à la vue complète">⟲ Recentrer</button><div class="tf" id="tf"><button data-tf="1d">24H</button><button data-tf="7d">7J</button><button data-tf="30d">1M</button><button data-tf="90d" class="on">3M</button><button data-tf="1y">1A</button></div></div>
   </div>
-  <div class="chart-grid"><div><div class="ohlc" id="ohlc"></div><div class="chart-wrap" id="chartWrap"><div id="chart"></div></div><div class="lv" id="legend"></div></div>
+  <div class="chart-grid"><div><div class="ohlc" id="ohlc"></div><div class="chart-wrap" id="chartWrap"><div id="chart"></div><div id="ov" style="position:absolute;inset:0;pointer-events:none;z-index:3"></div></div><div class="lv" id="legend"></div></div>
   <aside class="pnl" id="pnl"></aside></div>
   <div class="hstats" id="hstats"></div>
   <div id="histStat" class="small muted" style="margin-top:10px"></div>
@@ -393,9 +393,19 @@ function lwInit(){
     handleScale:{mouseWheel:true,pinch:true,axisPressedMouseMove:{time:true,price:false},axisDoubleClickReset:{time:true,price:true}},
     crosshair:{mode:0,vertLine:{color:"rgba(255,255,255,.3)",labelBackgroundColor:"#1b222c"},horzLine:{color:"rgba(255,255,255,.3)",labelBackgroundColor:"#1b222c"}},
     localization:{locale:"fr-FR",priceFormatter:v=>nf(v,2)}});
+  lw.timeScale().subscribeVisibleLogicalRangeChange(()=>requestAnimationFrame(placeOv));try{new ResizeObserver(()=>requestAnimationFrame(placeOv)).observe($("chart"))}catch(e){}
   lw.subscribeCrosshairMove(prm=>{const d=prm&&prm.time&&lwS?prm.seriesData.get(lwS):null;showOhlc(d||lwData[lwData.length-1],prm&&prm.time)});
 }
 document.addEventListener("click",e=>{if(e.target&&e.target.id==="recenter"&&lw){lw.timeScale().fitContent();lw.priceScale("right").applyOptions({autoScale:true})}});
+function placeOv(){
+  const box=$("ov");if(!box||!lw||!lwS||!window._ov)return;box.innerHTML="";
+  const pw=$("chart").clientWidth-lw.priceScale("right").width(),ph=$("chart").clientHeight-28;const placed=[];
+  window._ov.forEach(o=>{const x=lw.timeScale().timeToCoordinate(o.time),y=lwS.priceToCoordinate(o.price);if(x==null||y==null||x<0||x>pw)return;
+    const el=document.createElement("div");el.textContent=o.txt;el.style.cssText=`position:absolute;font-size:11px;font-weight:600;color:${o.c};background:rgba(9,12,17,.72);padding:1px 6px;border-radius:6px;white-space:nowrap;border:1px solid rgba(255,255,255,.06)`;
+    box.append(el);const w=el.offsetWidth,h=el.offsetHeight;let left=Math.max(2,Math.min(pw-w-2,x-w/2)),top=o.pos==="below"?y+8:y-8-h;top=Math.max(2,Math.min(ph-h,top));
+    placed.forEach(p=>{if(Math.abs(p.top-top)<h+2&&left<p.left+p.w&&left+w>p.left)top=o.pos==="below"?p.top+h+3:p.top-h-3});
+    el.style.left=left+"px";el.style.top=top+"px";placed.push({left,top,w})});
+}
 function lwSeries(levels){
   if(lwS)return;
   const auto=orig=>{const r=orig();const ls=(window._lvls||[]).map(l=>l.v);if(r&&ls.length){r.priceRange.minValue=Math.min(r.priceRange.minValue,...ls);r.priceRange.maxValue=Math.max(r.priceRange.maxValue,...ls)}return r};
@@ -430,10 +440,13 @@ function renderChart(){
       ex.forEach((e,j)=>pts.push({time:d.time+Math.round(per*(j+1)/(ex.length+2)),value:e.v}));
       pts.push({time:d.time+Math.round(per*(ex.length+1)/(ex.length+2)),value:d.close})});
     window._pts=pts;lwS.setData(pts)}
-  const mk0={time:lwData[0].time,position:"aboveBar",color:"#8fa8ff",shape:"circle",text:"Début"};const mk=[{time:lwData[iHi].time,position:"aboveBar",color:"#3fd68b",shape:"arrowDown",text:"Max "+nf(lwData[iHi].high,2)},{time:lwData[iLo].time,position:"belowBar",color:"#c9858c",shape:"arrowUp",text:"Min "+nf(lwData[iLo].low,2)}].sort((a,b)=>a.time-b.time);if(iHi!==0)mk.unshift(mk0);
-  if(CT==="candle")lwS.setMarkers(mk.sort((a,b)=>a.time-b.time));else{const pts2=window._pts||[];lwS.setMarkers(mk.map(x=>{if(x.text==="Début")return x;const v=x.text.startsWith("Min")?lwData[iLo].low:lwData[iHi].high;const pt=pts2.find(p=>p.value===v&&p.time>=x.time);return {...x,time:pt?pt.time:x.time}}).sort((a,b)=>a.time-b.time))}
-  lwLines.forEach(l=>lwS.removePriceLine(l));lwLines=levels.map(l=>lwS.createPriceLine({price:l.v,color:l.c,lineWidth:l.w,lineStyle:l.ls,axisLabelVisible:true,title:l.lab}));
-  lwLines.push(lwS.createPriceLine({price:lwData[0].open,color:"#8fa8ff",lineWidth:1,lineStyle:3,axisLabelVisible:true,title:"Début "+TFS[TF].lab}));
+  lwS.setMarkers([]);
+  {const pts2=window._pts||[];const tOf=(t,v)=>{if(CT==="candle")return t;const pt=pts2.find(p=>p.value===v&&p.time>=t);return pt?pt.time:t};
+   window._ov=[{time:lwData[0].time,price:lwData[0].open,txt:"Début "+nf(lwData[0].open,2)+" $",c:"#a9b8de",pos:"below"},
+     {time:tOf(lwData[iHi].time,lwData[iHi].high),price:lwData[iHi].high,txt:"▲ Max "+nf(lwData[iHi].high,2),c:"#6fd9a3",pos:"above"},
+     {time:tOf(lwData[iLo].time,lwData[iLo].low),price:lwData[iLo].low,txt:"▼ Min "+nf(lwData[iLo].low,2),c:"#cf9aa0",pos:"below"}];}
+  requestAnimationFrame(placeOv);
+  lwLines.forEach(l=>lwS.removePriceLine(l));lwLines=levels.map(l=>lwS.createPriceLine({price:l.v,color:l.c,lineWidth:l.w,lineStyle:l.ls,axisLabelVisible:true,title:"",axisLabelColor:"#161b23",axisLabelTextColor:l.c}));
   // zones colorées : orange sous la liq. partielle, rouge sous la liq. totale
   window._zones=window._zones||[];window._zones.forEach(z=>{try{lw.removeSeries(z)}catch(e){}});window._zones=[];
   [[mt.liqP,"rgba(217,164,118,.07)"],[mt.liqF,"rgba(201,138,145,.09)"]].forEach(([v,col])=>{if(!(m.D>0&&v>0))return;const z=lw.addAreaSeries({lineColor:"rgba(0,0,0,0)",topColor:col,bottomColor:col,lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,autoscaleInfoProvider:()=>null});z.setData(lwData.map(d=>({time:d.time,value:v})));window._zones.push(z)});
