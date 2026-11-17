@@ -116,7 +116,7 @@ input[type=checkbox]{accent-color:var(--accent)}
   <div class="row"><input type="text" id="addr" spellcheck="false" aria-label="Adresse du wallet"><button id="go">Actualiser</button></div>
 </header>
 <nav>
-  <a href="#etat">État</a><a href="#prix">Prix</a><a href="#situe">Où tu te situes</a>
+  <a href="#etat">État</a><a href="#prix">Prix</a><a href="#situe">Où tu te situes</a><a href="#operation">Mon opération</a>
 </nav>
 <div class="err" id="err"></div>
 
@@ -150,6 +150,26 @@ input[type=checkbox]{accent-color:var(--accent)}
   <div class="small muted" id="gaugeTxt"></div>
 </div>
 
+<div class="card section" id="operation">
+  <div class="row" style="justify-content:space-between;align-items:flex-end">
+    <div><h2>Ton opération HYPE + Earn</h2><div class="sub">Tes achats de HYPE, ce que tu as mis en garantie et emprunté, lus dans ton historique Hyperliquid.</div></div>
+    <label class="f" style="width:170px">Depuis le<input type="date" id="opStart"></label>
+  </div>
+  <div class="hstats" id="opStats" style="margin-top:14px"></div>
+  <h3 style="margin-top:20px">Si je rembourse tout en vendant des HYPE</h3>
+  <div class="row" style="gap:10px;margin-top:6px">
+    <label class="f" style="width:150px">Prix du HYPE ($)<input type="number" id="opPx" step="0.5"></label>
+    <label class="f" style="width:150px">Dans combien de mois<input type="number" id="opM" value="0" min="0" step="1"></label>
+    <div class="tf" id="opQuick" style="align-self:flex-end"><button data-p="now">Maintenant</button><button data-p="60">60 $</button><button data-p="80">80 $</button><button data-p="100">100 $</button><button data-p="120">120 $</button><button data-p="150">150 $</button></div>
+  </div>
+  <div class="grid g3" id="opOut" style="margin-top:12px"></div>
+  <div style="overflow-x:auto;margin-top:12px"><table id="opTable"><thead><tr><th>Prix HYPE</th><th class="r">HYPE à vendre</th><th class="r">HYPE restants</th><th class="r">Valeur restante</th><th class="r">Gain de l'emprunt</th><th class="r">Gain sur tes achats</th></tr></thead><tbody></tbody></table></div>
+  <details style="margin-top:14px" open><summary>Historique détaillé</summary>
+    <div style="overflow-x:auto;margin-top:8px"><table id="opHist"><thead><tr><th>Date</th><th>Opération</th><th class="r">HYPE</th><th class="r">Prix</th><th class="r">Montant</th></tr></thead><tbody></tbody></table></div>
+  </details>
+  <div class="small muted" style="margin-top:10px" id="opNote"></div>
+</div>
+
 <div class="foot">Lecture seule de l'API publique d'Hyperliquid : cette page ne peut rien faire sur ton compte. Calculs estimés à partir des règles publiées (docs Hyperliquid : manual borrows, portfolio margin). En cas d'écart, l'interface Hyperliquid fait foi. Pas un conseil financier.</div>
 </div>
 
@@ -175,7 +195,7 @@ async function load(){
       q({type:"clearinghouseState",user:addr}),q({type:"delegatorSummary",user:addr}),q({type:"delegatorHistory",user:addr})]);
     M=build(mc,reserves,bl,spot,perp,ds,dh);
     if(Date.now()-candlesAt>30*60*1000){try{candles=await q({type:"candleSnapshot",req:{coin:"HYPE",interval:"1d",startTime:Date.now()-400*86400000,endTime:Date.now()}});candlesAt=Date.now()}catch(e){}}
-    await loadTF();
+    await loadTF();await loadOp();
     renderAll();
     $("updated").textContent="Mis à jour à "+new Date().toLocaleTimeString("fr-FR")+" · actualisation auto toutes les 30 s";
     $("liveDot").className="dot";
@@ -228,7 +248,7 @@ function level(m,mt){
   if(m.D===0)return{k:"green",t:"Aucun emprunt",e:"🟢"};
   const b=mt.margin; if(b<.10)return{k:"red",t:"Danger",e:"🔴"}; if(b<.20)return{k:"orange",t:"Risque élevé",e:"🟠"}; if(b<.35)return{k:"orange",t:"Attention",e:"🟠"}; if(b<.50)return{k:"yellow",t:"À surveiller",e:"🟡"}; return{k:"green",t:"Confortable",e:"🟢"}}
 
-function renderAll(){renderState();renderChart()}
+function renderAll(){renderState();renderChart();renderOp()}
 
 function renderState(){
   const m=M,s=baseState(),mt=metrics(s,m.P),lv=level(m,mt);
@@ -383,6 +403,64 @@ function renderPnl(m,mt,data){
   const save=()=>{store("hl_invest",$("invIn").value);store("hl_cur",$("invCur").value);renderPnl(M,metrics(baseState(),M.P),lwData)};
   $("invIn").addEventListener("change",save);$("invCur").addEventListener("change",save);
 }
+
+// ---------- Opération HYPE + Earn ----------
+let OP=null,opAt=0,opKey="";
+$("opStart").value=store("hl_opstart")||"2026-11-06";
+async function loadOp(force){
+  const st=$("opStart").value||"2026-11-06",key=addr+st;
+  if(!force&&OP&&key===opKey&&Date.now()-opAt<5*60000)return;
+  const t0=new Date(st+"T00:00:00").getTime();
+  try{const [f,l]=await Promise.all([q({type:"userFillsByTime",user:addr,startTime:t0,aggregateByTime:true}),q({type:"userNonFundingLedgerUpdates",user:addr,startTime:t0})]);OP={f,l};opAt=Date.now();opKey=key}catch(e){}
+}
+function opModel(){
+  const f=OP.f.filter(x=>x.coin==="@107"),buys=f.filter(x=>x.side==="B"),sells=f.filter(x=>x.side==="A");
+  const bq=buys.reduce((a,x)=>a+ +x.sz,0),bc=buys.reduce((a,x)=>a+ +x.sz* +x.px,0),sq=sells.reduce((a,x)=>a+ +x.sz,0),sc=sells.reduce((a,x)=>a+ +x.sz* +x.px,0);
+  let borrowed=0,repaid=0,supplied=0,withdrawn=0;
+  OP.l.forEach(x=>{const d=x.delta;if(d.type!=="borrowLend")return;const a=+d.amount;
+    if(d.token==="HYPE"){if(d.operation==="supply")supplied+=a;if(d.operation==="withdraw")withdrawn+=a}
+    else{if(d.operation==="borrow")borrowed+=a;if(d.operation==="repay")repaid+=a}});
+  const avg=bq>0?bc/bq:M.P,principal=borrowed-repaid,X=avg>0?principal/avg:0;
+  return {bq,bc,sq,sc,avg,principal,X,supplied,withdrawn};
+}
+function renderOp(){
+  if(!M)return;if(!OP){$("opStats").innerHTML='<div><span>Chargement de l\'historique…</span></div>';return}
+  const o=opModel(),tot=M.hColl+M.hSpot+M.hStaked+M.hPending;
+  const P=parseFloat($("opPx").value)>0?parseFloat($("opPx").value):M.P,mo=+$("opM").value||0;
+  const D=M.D*(1+M.rate*mo/12),be=o.X>0?D/o.X:0;
+  $("opStats").innerHTML=`<div><span>HYPE achetés</span><b>${nf(o.bq,2)}</b><span>pour ${usd(o.bc)}</span></div>
+   <div><span>Prix moyen d'achat</span><b>${px(o.avg)}</b><span>${o.sq>0?"vendus : "+nf(o.sq,2)+" HYPE":"aucune vente"}</span></div>
+   <div><span>Emprunté</span><b>${usd(o.principal)}</b><span>≈ ${nf(o.X,1)} HYPE achetés avec</span></div>
+   <div><span>Prix d'équilibre de l'emprunt</span><b>${px(be)}</b><span>au-dessus : l'emprunt t'a rapporté</span></div>`;
+  const calc=P=>{const sell=D/P,rest=tot-sell,gL=o.X*P-D,gA=o.bq*(P-o.avg);return{sell,rest,val:rest*P,gL,gA}};
+  const c=calc(P),sg=v=>(v>=0?"▲ +":"▼ −")+nf(Math.abs(v),0)+" $",cl=v=>v>=0?"c-green":"c-red";
+  $("opOut").innerHTML=`<div class="card kpi"><div class="lab">À ${px(P)}${mo?" dans "+mo+" mois":""} : tu vends</div><div class="val">${nf(c.sell,1)} HYPE</div><div class="hint">pour rembourser ${usd(D)} de dette</div></div>
+   <div class="card kpi"><div class="lab">Il te reste, sans dette</div><div class="val">${c.rest>0?nf(c.rest,1)+" HYPE":"0"}</div><div class="hint">soit ${usd(Math.max(0,c.val))} (≈ ${nf(Math.max(0,c.val)/1.155,0)} €)</div></div>
+   <div class="card kpi"><div class="lab">Bénéfice grâce à l'emprunt</div><div class="val ${cl(c.gL)}">${sg(c.gL)}</div><div class="hint">${c.gL>=0?"+":"−"}${nf(Math.abs(c.gL/P),1)} HYPE par rapport à ne pas avoir emprunté · sur tes achats depuis le ${new Date($("opStart").value).toLocaleDateString("fr-FR")} : <b class="${cl(c.gA)}">${sg(c.gA)}</b></div></div>`;
+  const prices=[...new Set([50,60,M.P,70,80,90,100,120,150,200].map(v=>Math.round(v*100)/100))].sort((a,b)=>a-b);
+  $("opTable").querySelector("tbody").innerHTML=prices.map(p=>{const r=calc(p);return `<tr${Math.abs(p-M.P)<.01?' class="hl"':''}><td><b>${px(p)}</b>${Math.abs(p-M.P)<.01?' <span class="pill">maintenant</span>':''}</td><td class="r">${nf(r.sell,1)}</td><td class="r">${r.rest>0?nf(r.rest,1):"—"}</td><td class="r">${usd(Math.max(0,r.val))}</td><td class="r ${cl(r.gL)}">${sg(r.gL)}</td><td class="r ${cl(r.gA)}">${sg(r.gA)}</td></tr>`}).join("");
+  // historique
+  const ev=[];
+  OP.f.filter(x=>x.coin==="@107").forEach(x=>ev.push({t:x.time,op:x.side==="B"?"🟢 Achat de HYPE":"🔴 Vente de HYPE",h:(x.side==="B"?1:-1)* +x.sz,p:+x.px,m:+x.sz* +x.px}));
+  OP.f.filter(x=>x.coin!=="@107"&&x.coin.startsWith("@")).forEach(x=>{});
+  OP.l.forEach(x=>{const d=x.delta,a=+d.amount;
+    if(d.type==="borrowLend"){const L={supply:d.token==="HYPE"?"🛡️ Mis en garantie (Earn)":"💵 Prêté dans Earn",withdraw:d.token==="HYPE"?"↩️ Retiré de la garantie":"↩️ Retiré d'Earn",borrow:"🏦 Emprunt "+d.token,repay:"✅ Remboursement "+d.token}[d.operation]||d.operation;
+      ev.push({t:x.time,op:L,h:d.token==="HYPE"?(d.operation==="supply"?a:-a):null,m:d.token==="HYPE"?null:a})}
+    else if(d.type==="cStakingTransfer")ev.push({t:x.time,op:d.isDeposit?"🔒 Mis en staking":"🔓 Sorti du staking",h:+d.amount});
+    else if(d.type==="spotTransfer"&&d.token==="HYPE"&&d.destination&&d.destination.toLowerCase()===addr.toLowerCase())ev.push({t:x.time,op:"📥 HYPE reçus",h:a,m:+d.usdcValue});
+    else if(d.type==="spotTransfer"&&d.token!=="HYPE"&&d.destination&&d.destination.toLowerCase()===addr.toLowerCase())ev.push({t:x.time,op:"📥 "+d.token+" reçus",m:+d.usdcValue});
+  });
+  (M.pend||[]).forEach(p=>ev.push({t:p.eta,op:"⏳ Fin de déstaking prévue",h:p.amt,future:true}));
+  ev.sort((a,b)=>b.t-a.t);
+  const tb=$("opHist").querySelector("tbody");tb.innerHTML="";
+  ev.forEach(e=>{const tr=document.createElement("tr");if(e.future)tr.style.opacity=.7;
+    [new Date(e.t).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}),e.op,e.h!=null?(e.h>0?"+":"")+nf(e.h,2):"",e.p?px(e.p):"",e.m!=null?usd(e.m):""].forEach((v,i)=>{const td=document.createElement("td");if(i>=2)td.className="r";td.textContent=v;tr.append(td)});tb.append(tr)});
+  $("opNote").textContent="« Gain de l'emprunt » : ce que t'a rapporté (ou coûté) le fait d'avoir emprunté pour acheter plus de HYPE, après remboursement de toute la dette. Les HYPE achetés avec l'emprunt sont estimés au prix moyen d'achat de la période. « Gain sur tes achats » : plus-value sur tous les HYPE achetés depuis la date choisie. Frais non comptés.";
+}
+$("opStart").addEventListener("change",async()=>{store("hl_opstart",$("opStart").value);OP=null;renderOp();await loadOp(true);renderOp()});
+["opPx","opM"].forEach(id=>$(id).addEventListener("input",()=>renderOp()));
+document.querySelectorAll("#opQuick button").forEach(b=>b.addEventListener("click",()=>{$("opPx").value=b.dataset.p==="now"?"":b.dataset.p;document.querySelectorAll("#opQuick button").forEach(x=>x.classList.toggle("on",x===b));renderOp()}));
+
 function niceStep(r){const p=Math.pow(10,Math.floor(Math.log10(r))),f=r/p;return (f<1.5?1:f<3?2:f<7?5:10)*p}
 
 function renderPlan(){
