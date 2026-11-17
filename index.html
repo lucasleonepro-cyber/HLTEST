@@ -118,7 +118,7 @@ input[type=checkbox]{accent-color:var(--accent)}
     <div><div class="sub" style="font-weight:600;letter-spacing:.04em">HYPE / USD</div>
       <div style="margin-top:6px"><span class="hero-price" id="hPrice">–</span><span class="hero-chg" id="hChg"></span></div>
       <div class="hero-sub" id="hSub"></div></div>
-    <div class="tfs"><div class="tf" id="ctype"><button data-ct="candle">Bougies</button><button data-ct="line">Ligne</button></div><div class="tf" id="tf"><button data-tf="1d">24H</button><button data-tf="7d">7J</button><button data-tf="30d">1M</button><button data-tf="90d" class="on">3M</button><button data-tf="1y">1A</button></div></div>
+    <div class="tfs"><div class="tf" id="ctype"><button data-ct="candle">Bougies</button><button data-ct="line">Ligne</button></div><button class="ghost" id="recenter" title="Revenir à la vue complète">⟲ Recentrer</button><div class="tf" id="tf"><button data-tf="1d">24H</button><button data-tf="7d">7J</button><button data-tf="30d">1M</button><button data-tf="90d" class="on">3M</button><button data-tf="1y">1A</button></div></div>
   </div>
   <div class="ohlc" id="ohlc"></div><div class="chart-wrap" id="chartWrap"><div id="chart"></div></div>
   <div class="legend" id="legend"></div>
@@ -376,12 +376,15 @@ function lwInit(){
   lw=LightweightCharts.createChart($("chart"),{autoSize:true,
     layout:{background:{type:"solid",color:"transparent"},textColor:"#7b8694",fontFamily:"Inter, sans-serif",fontSize:11},
     grid:{vertLines:{color:"rgba(255,255,255,.04)"},horzLines:{color:"rgba(255,255,255,.04)"}},
-    rightPriceScale:{borderColor:"rgba(255,255,255,.08)",scaleMargins:{top:.08,bottom:.06}},
-    timeScale:{borderColor:"rgba(255,255,255,.08)",timeVisible:true,secondsVisible:false,rightOffset:4},
+    rightPriceScale:{borderColor:"rgba(255,255,255,.08)",scaleMargins:{top:.08,bottom:.06},autoScale:true},
+    timeScale:{borderColor:"rgba(255,255,255,.08)",timeVisible:true,secondsVisible:false,rightOffset:2,fixLeftEdge:true,fixRightEdge:true,lockVisibleTimeRangeOnResize:true,minBarSpacing:0.5},
+    handleScroll:{mouseWheel:false,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},
+    handleScale:{mouseWheel:true,pinch:true,axisPressedMouseMove:{time:true,price:false},axisDoubleClickReset:{time:true,price:true}},
     crosshair:{mode:0,vertLine:{color:"rgba(255,255,255,.3)",labelBackgroundColor:"#1b222c"},horzLine:{color:"rgba(255,255,255,.3)",labelBackgroundColor:"#1b222c"}},
     localization:{locale:"fr-FR",priceFormatter:v=>nf(v,2)}});
   lw.subscribeCrosshairMove(prm=>{const d=prm&&prm.time&&lwS?prm.seriesData.get(lwS):null;showOhlc(d||lwData[lwData.length-1],prm&&prm.time)});
 }
+document.addEventListener("click",e=>{if(e.target&&e.target.id==="recenter"&&lw){lw.timeScale().fitContent();lw.priceScale("right").applyOptions({autoScale:true})}});
 function lwSeries(levels){
   if(lwS)return;
   const auto=orig=>{const r=orig();const ls=(window._lvls||[]).map(l=>l.v);if(r&&ls.length){r.priceRange.minValue=Math.min(r.priceRange.minValue,...ls);r.priceRange.maxValue=Math.max(r.priceRange.maxValue,...ls)}return r};
