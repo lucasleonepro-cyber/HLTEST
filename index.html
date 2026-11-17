@@ -430,9 +430,10 @@ function renderChart(){
       ex.forEach((e,j)=>pts.push({time:d.time+Math.round(per*(j+1)/(ex.length+2)),value:e.v}));
       pts.push({time:d.time+Math.round(per*(ex.length+1)/(ex.length+2)),value:d.close})});
     window._pts=pts;lwS.setData(pts)}
-  const mk=[{time:lwData[iHi].time,position:"aboveBar",color:"#3fd68b",shape:"arrowDown",text:"Max "+nf(lwData[iHi].high,2)},{time:lwData[iLo].time,position:"belowBar",color:"#ff5d6c",shape:"arrowUp",text:"Min "+nf(lwData[iLo].low,2)}].sort((a,b)=>a.time-b.time);
-  if(CT==="candle")lwS.setMarkers(mk);else{const pts2=window._pts||[];lwS.setMarkers(mk.map(x=>{const v=x.text.startsWith("Min")?lwData[iLo].low:lwData[iHi].high;const pt=pts2.find(p=>p.value===v&&p.time>=x.time);return {...x,time:pt?pt.time:x.time}}).sort((a,b)=>a.time-b.time))}
+  const mk0={time:lwData[0].time,position:"aboveBar",color:"#8fa8ff",shape:"circle",text:"Début"};const mk=[{time:lwData[iHi].time,position:"aboveBar",color:"#3fd68b",shape:"arrowDown",text:"Max "+nf(lwData[iHi].high,2)},{time:lwData[iLo].time,position:"belowBar",color:"#ff5d6c",shape:"arrowUp",text:"Min "+nf(lwData[iLo].low,2)}].sort((a,b)=>a.time-b.time);if(iHi!==0)mk.unshift(mk0);
+  if(CT==="candle")lwS.setMarkers(mk.sort((a,b)=>a.time-b.time));else{const pts2=window._pts||[];lwS.setMarkers(mk.map(x=>{if(x.text==="Début")return x;const v=x.text.startsWith("Min")?lwData[iLo].low:lwData[iHi].high;const pt=pts2.find(p=>p.value===v&&p.time>=x.time);return {...x,time:pt?pt.time:x.time}}).sort((a,b)=>a.time-b.time))}
   lwLines.forEach(l=>lwS.removePriceLine(l));lwLines=levels.map(l=>lwS.createPriceLine({price:l.v,color:l.c,lineWidth:l.w,lineStyle:l.ls,axisLabelVisible:true,title:l.lab}));
+  lwLines.push(lwS.createPriceLine({price:lwData[0].open,color:"#8fa8ff",lineWidth:1,lineStyle:3,axisLabelVisible:true,title:"Début "+TFS[TF].lab}));
   // zones colorées : orange sous la liq. partielle, rouge sous la liq. totale
   window._zones=window._zones||[];window._zones.forEach(z=>{try{lw.removeSeries(z)}catch(e){}});window._zones=[];
   [[mt.liqP,"rgba(255,155,69,.16)"],[mt.liqF,"rgba(255,77,94,.20)"]].forEach(([v,col])=>{if(!(m.D>0&&v>0))return;const z=lw.addAreaSeries({lineColor:"rgba(0,0,0,0)",topColor:col,bottomColor:col,lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,autoscaleInfoProvider:()=>null});z.setData(lwData.map(d=>({time:d.time,value:v})));window._zones.push(z)});
@@ -440,7 +441,7 @@ function renderChart(){
   showOhlc(lwData[lwData.length-1]);
   const first=lwData[0].open,chg=m.P/first-1,hiR=Math.max(...lwData.map(d=>d.high)),loR=Math.min(...lwData.map(d=>d.low));
   $("hChg").textContent=(chg>=0?"▲ +":"▼ −")+nf(Math.abs(chg)*100,2)+" %";$("hChg").className="hero-chg "+(chg>=0?"up":"down");
-  $("hSub").textContent="Sur "+TFS[TF].lab+" · "+(CT==="candle"?"bougies "+TFS[TF].iv:"ligne (plus haut et plus bas inclus)")+" · données Hyperliquid · molette / pincer pour zoomer";
+  $("hSub").textContent="Début de période : "+px(lwData[0].open)+" le "+new Date(lwData[0].time*1000).toLocaleString("fr-FR",TFS[TF].iv==="1d"?{day:"numeric",month:"short",year:"numeric"}:{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+" → "+px(m.P)+" maintenant · "+(CT==="candle"?"bougies "+TFS[TF].iv:"ligne (plus haut et plus bas inclus)")+" · données Hyperliquid · molette / pincer pour zoomer";
   $("legend").innerHTML=levels.map(l=>`<div><svg width="24" height="10"><line x1="0" x2="24" y1="5" y2="5" stroke="${l.c}" stroke-width="${l.w+0.5}" stroke-dasharray="${l.dash}"/></svg><span style="color:${l.c};font-weight:650">${l.lab}</span><b>${px(l.v)} <span>(−${pct(Math.max(0,1-l.v/m.P),1)})</span></b><span>${l.d}</span></div>`).join("");
   renderPnl(m,mt,lwData);
   const dist=m.D>0&&mt.liqP>0?(1-mt.liqP/m.P):null;
