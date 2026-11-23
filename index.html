@@ -99,6 +99,8 @@ input[type=checkbox]{accent-color:var(--accent)}
 .lv div{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:rgba(255,255,255,.02);position:relative;padding-left:46px}
 .lv svg{position:absolute;left:12px;top:16px}
 .lv b{display:block;font-size:15px;font-variant-numeric:tabular-nums}.lv span{font-size:12px;color:var(--muted)}
+#lotCards{display:none}@media (max-width:700px){#lotTableWrap{display:none}#lotCards{display:flex;flex-direction:column;gap:8px;margin-top:10px}}
+.lc{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:rgba(255,255,255,.02)}.lc .t{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.lc .d{font-size:12px;color:var(--muted);margin-top:4px}
 .legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;font-size:12.5px;color:var(--ink2)}
 .legend i{display:inline-block;width:18px;height:0;border-top:2px dashed;vertical-align:middle;margin-right:6px}
 .hstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
@@ -164,6 +166,24 @@ input[type=checkbox]{accent-color:var(--accent)}
   </div>
   <div class="grid g3" id="opOut" style="margin-top:12px"></div>
   <div style="overflow-x:auto;margin-top:12px"><table id="opTable"><thead><tr><th>Prix HYPE</th><th class="r">HYPE à vendre</th><th class="r">HYPE restants</th><th class="r">Valeur restante</th><th class="r">Gain de l'emprunt</th><th class="r">Gain sur tes achats</th></tr></thead><tbody></tbody></table></div>
+  <h3 style="margin-top:22px">Mes entrées, une par une : en positif ou en négatif ?</h3>
+  <div class="sub">Chaque achat, chaque HYPE reçu et chaque emprunt, comparé au prix actuel du HYPE. Une ligne « Emprunt » montre ce que l'argent emprunté t'a rapporté une fois la dette et les intérêts déduits ; les HYPE achetés avec apparaissent aussi dans les achats.</div>
+  <div class="hstats" id="lotSum" style="margin-top:10px"></div>
+  <div class="row" style="margin-top:12px;justify-content:space-between">
+    <div class="tf" id="lotFilter"><button data-f="all" class="on">Tout</button><button data-f="buy">Achats / reçus</button><button data-f="borrow">Emprunts</button></div>
+    <span class="small muted" id="lotPx"></span>
+  </div>
+  <div id="lotCards"></div><div style="overflow-x:auto;margin-top:8px" id="lotTableWrap"><table id="lotTable"><thead><tr><th>Date</th><th>Entrée</th><th class="r">Quantité</th><th class="r">Prix HYPE à l'entrée</th><th class="r">Valeur à l'entrée</th><th class="r">Valeur aujourd'hui</th><th class="r">Résultat</th></tr></thead><tbody></tbody></table></div>
+  <div class="box" style="margin-top:14px">
+    <b>Tester un lot</b> <span class="small muted">— par exemple « 10 HYPE il y a 20 jours »</span>
+    <div class="row" style="gap:10px;margin-top:8px;align-items:flex-end">
+      <label class="f" style="width:130px">Quantité de HYPE<input type="number" id="tQty" value="10" step="0.1" min="0"></label>
+      <label class="f" style="width:130px">Il y a (jours)<input type="number" id="tDays" value="20" step="1" min="0"></label>
+      <label class="f" style="width:170px">ou à la date<input type="date" id="tDate"></label>
+      <label class="f" style="width:190px">Financé par<select id="tFund"><option value="own">Mon argent</option><option value="borrow">Un emprunt (5 %/an)</option></select></label>
+    </div>
+    <div id="tOut" style="margin-top:10px"></div>
+  </div>
   <details style="margin-top:14px" open><summary>Historique détaillé</summary>
     <div style="overflow-x:auto;margin-top:8px"><table id="opHist"><thead><tr><th>Date</th><th>Opération</th><th class="r">HYPE</th><th class="r">Prix</th><th class="r">Montant</th></tr></thead><tbody></tbody></table></div>
   </details>
@@ -222,8 +242,9 @@ function build(mc,reserves,bl,spot,perp,ds,dh){
   const pend=(Array.isArray(dh)?dh:[]).filter(e=>e.delta&&e.delta.withdrawal&&e.delta.withdrawal.phase==="initiated"&&e.time>Date.now()-7.2*86400000).map(e=>({amt:+e.delta.withdrawal.amount,eta:e.time+7*86400000}));
   const D=debts.reduce((s,o)=>s+o.val,0), L=lent.reduce((s,o)=>s+o.val,0);
   const rate=D>0?debts.reduce((s,o)=>s+o.val*o.rate,0)/D:0.05;
+  const hypePairs=new Set(meta.universe.filter(pp=>pp.tokens[0]===150).map(pp=>pp.name));
   let prev=null;meta.universe.forEach(pp=>{if(pp.tokens[0]===150&&pp.tokens[1]===0){const c=ctxs[pp.index];if(c&&+c.prevDayPx>0)prev=+c.prevDayPx}});
-  return {prev,res,coll,lent,debts,H,P:H.px,hColl,hSpot,hStaked,hPending,pend,stables,otherSpot,oW,oL,oF,oV,D,L,rate,health:bl.health,hfApi:bl.healthFactor!=null?+bl.healthFactor:null,perp};
+  return {hypePairs,prev,res,coll,lent,debts,H,P:H.px,hColl,hSpot,hStaked,hPending,pend,stables,otherSpot,oW,oL,oF,oV,D,L,rate,health:bl.health,hfApi:bl.healthFactor!=null?+bl.healthFactor:null,perp};
 }
 
 // --- modèle d'état (simplifié autour du HYPE) ---
@@ -405,16 +426,18 @@ function renderPnl(m,mt,data){
 }
 
 // ---------- Opération HYPE + Earn ----------
+const isHypePair=c=>(M&&M.hypePairs&&M.hypePairs.size?M.hypePairs:new Set(["@107","@207","@232","@255"])).has(c);
 let OP=null,opAt=0,opKey="";
 $("opStart").value=store("hl_opstart")||"2026-11-06";
 async function loadOp(force){
   const st=$("opStart").value||"2026-11-06",key=addr+st;
   if(!force&&OP&&key===opKey&&Date.now()-opAt<5*60000)return;
   const t0=new Date(st+"T00:00:00").getTime();
-  try{const [f,l]=await Promise.all([q({type:"userFillsByTime",user:addr,startTime:t0,aggregateByTime:true}),q({type:"userNonFundingLedgerUpdates",user:addr,startTime:t0})]);OP={f,l};opAt=Date.now();opKey=key}catch(e){}
+  const span=Date.now()-t0,iv=span>200*86400000?"4h":"1h";
+  try{const [f,l,c]=await Promise.all([q({type:"userFillsByTime",user:addr,startTime:t0,aggregateByTime:true}),q({type:"userNonFundingLedgerUpdates",user:addr,startTime:t0}),q({type:"candleSnapshot",req:{coin:"HYPE",interval:iv,startTime:t0-86400000,endTime:Date.now()}}).catch(()=>[])]);OP={f,l,c};opAt=Date.now();opKey=key}catch(e){}
 }
 function opModel(){
-  const f=OP.f.filter(x=>x.coin==="@107"),buys=f.filter(x=>x.side==="B"),sells=f.filter(x=>x.side==="A");
+  const f=OP.f.filter(x=>isHypePair(x.coin)),buys=f.filter(x=>x.side==="B"),sells=f.filter(x=>x.side==="A");
   const bq=buys.reduce((a,x)=>a+ +x.sz,0),bc=buys.reduce((a,x)=>a+ +x.sz* +x.px,0),sq=sells.reduce((a,x)=>a+ +x.sz,0),sc=sells.reduce((a,x)=>a+ +x.sz* +x.px,0);
   let borrowed=0,repaid=0,supplied=0,withdrawn=0;
   OP.l.forEach(x=>{const d=x.delta;if(d.type!=="borrowLend")return;const a=+d.amount;
@@ -441,9 +464,8 @@ function renderOp(){
   $("opTable").querySelector("tbody").innerHTML=prices.map(p=>{const r=calc(p);return `<tr${Math.abs(p-M.P)<.01?' class="hl"':''}><td><b>${px(p)}</b>${Math.abs(p-M.P)<.01?' <span class="pill">maintenant</span>':''}</td><td class="r">${nf(r.sell,1)}</td><td class="r">${r.rest>0?nf(r.rest,1):"—"}</td><td class="r">${usd(Math.max(0,r.val))}</td><td class="r ${cl(r.gL)}">${sg(r.gL)}</td><td class="r ${cl(r.gA)}">${sg(r.gA)}</td></tr>`}).join("");
   // historique
   const ev=[];
-  OP.f.filter(x=>x.coin==="@107").forEach(x=>ev.push({t:x.time,op:x.side==="B"?"🟢 Achat de HYPE":"🔴 Vente de HYPE",h:(x.side==="B"?1:-1)* +x.sz,p:+x.px,m:+x.sz* +x.px}));
-  OP.f.filter(x=>x.coin!=="@107"&&x.coin.startsWith("@")).forEach(x=>{});
-  OP.l.forEach(x=>{const d=x.delta,a=+d.amount;
+  OP.f.filter(x=>isHypePair(x.coin)).forEach(x=>ev.push({t:x.time,op:x.side==="B"?"🟢 Achat de HYPE":"🔴 Vente de HYPE",h:(x.side==="B"?1:-1)* +x.sz,p:+x.px,m:+x.sz* +x.px}));
+    OP.l.forEach(x=>{const d=x.delta,a=+d.amount;
     if(d.type==="borrowLend"){const L={supply:d.token==="HYPE"?"🛡️ Mis en garantie (Earn)":"💵 Prêté dans Earn",withdraw:d.token==="HYPE"?"↩️ Retiré de la garantie":"↩️ Retiré d'Earn",borrow:"🏦 Emprunt "+d.token,repay:"✅ Remboursement "+d.token}[d.operation]||d.operation;
       ev.push({t:x.time,op:L,h:d.token==="HYPE"?(d.operation==="supply"?a:-a):null,m:d.token==="HYPE"?null:a})}
     else if(d.type==="cStakingTransfer")ev.push({t:x.time,op:d.isDeposit?"🔒 Mis en staking":"🔓 Sorti du staking",h:+d.amount});
@@ -455,11 +477,83 @@ function renderOp(){
   const tb=$("opHist").querySelector("tbody");tb.innerHTML="";
   ev.forEach(e=>{const tr=document.createElement("tr");if(e.future)tr.style.opacity=.7;
     [new Date(e.t).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}),e.op,e.h!=null?(e.h>0?"+":"")+nf(e.h,2):"",e.p?px(e.p):"",e.m!=null?usd(e.m):""].forEach((v,i)=>{const td=document.createElement("td");if(i>=2)td.className="r";td.textContent=v;tr.append(td)});tb.append(tr)});
+  renderLots();
   $("opNote").textContent="« Gain de l'emprunt » : ce que t'a rapporté (ou coûté) le fait d'avoir emprunté pour acheter plus de HYPE, après remboursement de toute la dette. Les HYPE achetés avec l'emprunt sont estimés au prix moyen d'achat de la période. « Gain sur tes achats » : plus-value sur tous les HYPE achetés depuis la date choisie. Frais non comptés.";
 }
 $("opStart").addEventListener("change",async()=>{store("hl_opstart",$("opStart").value);OP=null;renderOp();await loadOp(true);renderOp()});
 ["opPx","opM"].forEach(id=>$(id).addEventListener("input",()=>renderOp()));
 document.querySelectorAll("#opQuick button").forEach(b=>b.addEventListener("click",()=>{$("opPx").value=b.dataset.p==="now"?"":b.dataset.p;document.querySelectorAll("#opQuick button").forEach(x=>x.classList.toggle("on",x===b));renderOp()}));
+
+
+// ---------- Lots : chaque entrée comparée au prix actuel ----------
+let LOTF="all";
+function hypePriceAt(t){
+  const c=(OP&&OP.c)||[];if(c.length){let best=null;for(const k of c){if(+k.t<=t)best=k;else break}
+    if(best){const end=+best.T||(+best.t+3600000);return t>=end?+best.c:(+best.o+ +best.c)/2}}
+  const d=candles||[];let b=null;for(const k of d){if(+k.t<=t)b=k;else break}return b?(+b.o+ +b.c)/2:null}
+function groupEv(arr,key){ // regroupe les événements du même type à moins de 15 min d'écart
+  const out=[];arr.sort((a,b)=>a.t-b.t).forEach(e=>{const last=out[out.length-1];
+    if(last&&last.k===key(e)&&e.t-last.t2<15*60000){last.q+=e.q;last.v+=e.v;last.t2=e.t}else out.push({...e,k:key(e),t2:e.t})});return out}
+function buildLots(){
+  const P=M.P,rate=M.rate||0.05,now=Date.now(),lots=[];
+  const fills=OP.f.filter(x=>isHypePair(x.coin)).map(x=>({t:+x.time,side:x.side,q:+x.sz,v:+x.sz* +x.px}));
+  groupEv(fills,e=>e.side).forEach(g=>{const px0=g.v/g.q;
+    if(g.side==="B")lots.push({t:g.t,kind:"buy",label:"🟢 Achat de HYPE",q:g.q,p0:px0,v0:g.v,v1:g.q*P,r:g.q*P-g.v});
+    else lots.push({t:g.t,kind:"buy",label:"🔴 Vente de HYPE",q:-g.q,p0:px0,v0:g.v,v1:g.q*P,r:g.v-g.q*P,sold:true})});
+  const rec=[];OP.l.forEach(x=>{const d=x.delta;if(d.type==="spotTransfer"&&d.token==="HYPE"&&d.destination&&d.destination.toLowerCase()===addr.toLowerCase()&&(!d.user||d.user.toLowerCase()!==addr.toLowerCase()))rec.push({t:+x.time,q:+d.amount,v:+d.usdcValue||0})});
+  groupEv(rec,()=>"rec").forEach(g=>{const p0=g.v>0?g.v/g.q:hypePriceAt(g.t);lots.push({t:g.t,kind:"buy",label:"📥 HYPE reçus",q:g.q,p0,v0:g.q*p0,v1:g.q*P,r:g.q*(P-p0)})});
+  const bor=[];OP.l.forEach(x=>{const d=x.delta;if(d.type==="borrowLend"&&d.token!=="HYPE"&&(d.operation==="borrow"||d.operation==="repay"))bor.push({t:+x.time,q:(d.operation==="borrow"?1:-1)*(+d.amount),v:0,op:d.operation})});
+  const fb=fills.filter(f=>f.side==="B");
+  groupEv(bor,e=>e.op).forEach(g=>{if(g.op!=="borrow"||g.q<1)return;
+    // prix réellement payé si un achat de HYPE a eu lieu juste autour de l'emprunt (±45 min), sinon prix du marché à ce moment
+    const near=fb.filter(f=>f.t>=g.t-45*60000&&f.t<=g.t2+45*60000),nq=near.reduce((a,f)=>a+f.q,0);
+    const p0=nq>0?near.reduce((a,f)=>a+f.v,0)/nq:hypePriceAt(g.t);if(!p0)return;const h=g.q/p0,days=(now-g.t)/86400000,interest=g.q*rate*days/365;
+    lots.push({t:g.t,kind:"borrow",label:"🏦 Emprunt → HYPE",q:h,amt:g.q,p0,v0:g.q,v1:h*P,interest,r:h*P-g.q-interest})});
+  return lots.sort((a,b)=>b.t-a.t);
+}
+function renderLots(){
+  if(!M||!OP)return;const P=M.P,lots=buildLots(),now=Date.now();
+  const sg=v=>(v>=0?"▲ +":"▼ −")+nf(Math.abs(v),0)+" $",cl=v=>v>=0?"c-green":"c-red";
+  const buys=lots.filter(l=>l.kind==="buy"),bor=lots.filter(l=>l.kind==="borrow");
+  const rb=buys.reduce((a,l)=>a+l.r,0),rr=bor.reduce((a,l)=>a+l.r,0),pos=lots.filter(l=>l.r>=0).length;
+  $("lotSum").innerHTML=`<div><span>Résultat de tes achats / reçus</span><b class="${cl(rb)}">${sg(rb)}</b><span>${buys.length} entrée(s)</span></div>
+   <div><span>Résultat de tes emprunts</span><b class="${bor.length?cl(rr):""}">${bor.length?sg(rr):"—"}</b><span>intérêts déduits</span></div>
+   <div><span>Entrées en positif</span><b>${pos} / ${lots.length}</b><span>${lots.length-pos} en négatif</span></div>
+   <div><span>Prix pour que tout soit positif</span><b>${px(Math.max(0,...lots.filter(l=>!l.sold).map(l=>l.kind==="borrow"?(l.amt+l.interest)/l.q:l.p0)))}</b><span>ton entrée la plus chère</span></div>`;
+  $("lotPx").textContent="Prix actuel : "+px(P);
+  const tb=$("lotTable").querySelector("tbody");tb.innerHTML="";
+  lots.filter(l=>LOTF==="all"||l.kind===LOTF).forEach(l=>{
+    const days=Math.floor((now-l.t)/86400000),tr=document.createElement("tr");
+    const pc=l.kind==="borrow"?l.r/l.amt:l.sold?(l.v0/(Math.abs(l.q)*P)-1):(P/l.p0-1);
+    const cells=[
+      `${new Date(l.t).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} <span class="muted small">· ${days===0?"aujourd'hui":"il y a "+days+" j"}</span>`,
+      `${l.label}${l.kind==="borrow"?`<div class="small muted">${usd(l.amt)} empruntés = ${nf(l.q,2)} HYPE ce jour-là</div>`:l.sold?`<div class="small muted">si tu les avais gardés : ${usd(l.v1)}</div>`:""}`,
+      `${nf(Math.abs(l.q),2)} HYPE`,px(l.p0),usd(l.v0),
+      l.kind==="borrow"?`${usd(l.v1)}<div class="small muted">− dette ${usd(l.amt+l.interest)}</div>`:l.sold?`<span class="muted">vendu</span>`:usd(l.v1),
+      `<b class="${cl(l.r)}">${sg(l.r)}</b><div class="small ${cl(l.r)}">${(pc>=0?"+":"−")+nf(Math.abs(pc)*100,1)} %</div>`];
+    cells.forEach((h,i)=>{const td=document.createElement("td");if(i>=2)td.className="r";td.innerHTML=h;tr.append(td)});tb.append(tr)});
+  if(!tb.children.length)tb.innerHTML='<tr><td colspan="7" class="muted">Aucune entrée sur cette période.</td></tr>';
+  const cards=$("lotCards");cards.innerHTML="";
+  lots.filter(l=>LOTF==="all"||l.kind===LOTF).forEach(l=>{const days=Math.floor((now-l.t)/86400000);const pc=l.kind==="borrow"?l.r/l.amt:l.sold?(l.v0/(Math.abs(l.q)*P)-1):(P/l.p0-1);
+    const d=document.createElement("div");d.className="lc";
+    d.innerHTML=`<div class="t"><div><b>${l.label}</b><div class="d">${new Date(l.t).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} · ${days===0?"aujourd'hui":"il y a "+days+" j"}</div></div><div style="text-align:right"><b class="${cl(l.r)}">${sg(l.r)}</b><div class="d ${cl(l.r)}">${(pc>=0?"+":"−")+nf(Math.abs(pc)*100,1)} %</div></div></div>
+      <div class="d">${l.kind==="borrow"?`${usd(l.amt)} empruntés = ${nf(l.q,2)} HYPE à ${px(l.p0)} → valent ${usd(l.v1)} − dette ${usd(l.amt+l.interest)}`:l.sold?`${nf(Math.abs(l.q),2)} HYPE vendus à ${px(l.p0)} (${usd(l.v0)}) · gardés, ils vaudraient ${usd(l.v1)}`:`${nf(l.q,2)} HYPE à ${px(l.p0)} = ${usd(l.v0)} → aujourd'hui ${usd(l.v1)}`}</div>`;
+    cards.append(d)});
+  renderTest();
+}
+function renderTest(){
+  if(!M)return;const P=M.P,qty=+$("tQty").value||0;let t;
+  if($("tDate").value)t=new Date($("tDate").value+"T12:00:00").getTime();else t=Date.now()-(+$("tDays").value||0)*86400000;
+  const p0=hypePriceAt(t),out=$("tOut");
+  if(!p0){out.innerHTML='<span class="muted">Pas de prix disponible pour cette date (historique limité à environ 13 mois).</span>';return}
+  const days=(Date.now()-t)/86400000,v0=qty*p0,v1=qty*P;let r=v1-v0,extra="";
+  if($("tFund").value==="borrow"){const i=v0*(M.rate||0.05)*days/365;r=v1-v0-i;extra=` · intérêts de l'emprunt : ${usd(i,2)}`}
+  const cl=r>=0?"c-green":"c-red";
+  out.innerHTML=`<b>${nf(qty,2)} HYPE</b> le ${new Date(t).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})} à <b>${px(p0)}</b> = ${usd(v0)}. Aujourd'hui à ${px(P)} = <b>${usd(v1)}</b> → <b class="${cl}">${r>=0?"▲ +":"▼ −"}${nf(Math.abs(r),0)} $ (${(P/p0-1>=0?"+":"−")+nf(Math.abs(P/p0-1)*100,1)} %)</b>${extra}`;
+}
+document.querySelectorAll("#lotFilter button").forEach(b=>b.addEventListener("click",()=>{LOTF=b.dataset.f;document.querySelectorAll("#lotFilter button").forEach(x=>x.classList.toggle("on",x===b));renderLots()}));
+["tQty","tDays","tFund"].forEach(id=>$(id).addEventListener("input",()=>{if(id==="tDays")$("tDate").value="";renderTest()}));
+$("tDate").addEventListener("input",renderTest);
 
 function niceStep(r){const p=Math.pow(10,Math.floor(Math.log10(r))),f=r/p;return (f<1.5?1:f<3?2:f<7?5:10)*p}
 
